@@ -1,0 +1,8 @@
+/.claude
+/.env
+/.pytest_cache
+/.venv
+/com.snoopy.daemon.plist
+/data
+/snoopy.egg-info
+/uv.lock

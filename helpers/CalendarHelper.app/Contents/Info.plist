@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.snoopy.calendar-helper</string>
+    <key>CFBundleName</key>
+    <string>CalendarHelper</string>
+    <key>CFBundleExecutable</key>
+    <string>calendar_helper</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSUIElement</key>
+    <false/>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Snoopy needs calendar access to log your schedule for activity tracking.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Snoopy needs calendar access to log your schedule for activity tracking.</string>
+</dict>
+</plist>

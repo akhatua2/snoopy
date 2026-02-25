@@ -1,0 +1,23 @@
+[project]
+name = "snoopy"
+version = "0.1.0"
+description = "macOS activity collection daemon"
+requires-python = ">=3.11"
+dependencies = [
+    "pyobjc-framework-Cocoa",
+    "pyobjc-framework-Quartz",
+    "pyobjc-framework-CoreLocation",
+    "pyobjc-framework-FSEvents",
+]
+
+[project.scripts]
+snoopy = "snoopy.daemon:main"
+snoopy-hook = "snoopy.hooks:main"
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
