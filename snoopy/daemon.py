@@ -37,6 +37,7 @@ from snoopy.collectors.applifecycle import AppLifecycleCollector
 from snoopy.collectors.battery import BatteryCollector
 from snoopy.collectors.calendar import CalendarCollector
 from snoopy.collectors.oura import OuraCollector
+from snoopy.collectors.mail import MailCollector
 
 log = logging.getLogger("snoopy")
 
@@ -58,6 +59,7 @@ ALL_COLLECTORS = [
     BatteryCollector,
     CalendarCollector,
     OuraCollector,
+    MailCollector,
 ]
 
 

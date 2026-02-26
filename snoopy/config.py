@@ -40,6 +40,8 @@ CALENDAR_INTERVAL = 1800    # 30 minutes
 CALENDAR_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "CalendarHelper.app"
 OURA_INTERVAL = 86400       # once per day
 OURA_PAT = os.environ.get("OURA_PAT", "")
+MAIL_INTERVAL = 60          # poll every 60s
+MAIL_SEED_DAYS = 1          # on first run, seed with last N days
 
 # ── Buffer ─────────────────────────────────────────────────────────────
 BUFFER_FLUSH_INTERVAL = 5  # seconds between flushes

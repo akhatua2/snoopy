@@ -27,7 +27,7 @@ _VALID_TABLES = frozenset({
     "claude_events", "network_events", "location_events",
     "notification_events", "audio_events", "message_events",
     "system_events", "app_events", "battery_events", "calendar_events",
-    "calendar_changes", "oura_daily",
+    "calendar_changes", "oura_daily", "mail_events",
     "collector_state", "daemon_health",
 })
 
@@ -263,6 +263,22 @@ CREATE TABLE IF NOT EXISTS oura_daily (
     last_seen REAL
 );
 CREATE INDEX IF NOT EXISTS idx_oura_day ON oura_daily(day);
+
+CREATE TABLE IF NOT EXISTS mail_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    message_id INTEGER NOT NULL,
+    mailbox TEXT NOT NULL,
+    sender TEXT,
+    subject TEXT,
+    content_preview TEXT,
+    is_from_me INTEGER,
+    read INTEGER,
+    deleted INTEGER,
+    flagged INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_mail_ts ON mail_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_mail_message_id ON mail_events(message_id);
 
 CREATE TABLE IF NOT EXISTS collector_state (
     id INTEGER PRIMARY KEY,
