@@ -52,6 +52,8 @@ def parse_transcript(transcript_path: Path, since_offset: int = 0) -> list[dict]
 
             if event_type == "user":
                 content = _extract_content(entry.get("message", {}))
+                if not content.strip():
+                    continue
                 events.append({
                     "timestamp": ts,
                     "session_id": session_id,
