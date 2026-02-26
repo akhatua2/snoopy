@@ -142,6 +142,10 @@ CREATE TABLE IF NOT EXISTS location_events (
     longitude REAL,
     accuracy_m REAL,
     altitude_m REAL,
+    address TEXT,
+    locality TEXT,
+    admin_area TEXT,
+    country TEXT,
     source TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_location_ts ON location_events(timestamp);
@@ -329,6 +333,17 @@ class Database:
     def _get_schema() -> str:
         return _SCHEMA
 
+    @staticmethod
+    def _migrate(conn: sqlite3.Connection) -> None:
+        """Add columns that may be missing from older databases."""
+        cur = conn.execute("PRAGMA table_info(location_events)")
+        existing = {row[1] for row in cur.fetchall()}
+        for col in ("address TEXT", "locality TEXT", "admin_area TEXT", "country TEXT"):
+            name = col.split()[0]
+            if name not in existing:
+                conn.execute(f"ALTER TABLE location_events ADD COLUMN {col}")
+                log.info("migrated location_events: added %s", name)
+
     def open(self) -> None:
         """Open the database, apply pragmas, and ensure schema exists."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -343,6 +358,7 @@ class Database:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.execute("PRAGMA cache_size=-8000")  # 8 MB cache
         self._conn.executescript(_SCHEMA)
+        self._migrate(self._conn)
         self._conn.commit()
         log.info("database opened at %s (schema v%d)", self.path, SCHEMA_VERSION)
 
