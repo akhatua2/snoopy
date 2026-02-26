@@ -67,6 +67,30 @@ CLIPBOARD_EXCLUDED_APPS = frozenset({
     "Dashlane",
 })
 
+# ── App lifecycle noise ───────────────────────────────────────────────
+APP_EXCLUDED = frozenset({
+    "Safari", "Music", "TV", "News", "Stocks", "Weather", "Phone", "Clock",
+    "CoreServicesUIAgent", "CoreLocationAgent",
+    "Cisco/Cisco Secure Client - Socket Filter",
+    "Utilities/Nudge",
+    "liquiddetectiond", "ManagedClient",
+    "XProtect",
+    "EscrowSecurityAlert", "TimeMachine/TMHelperAgent",
+    "Setup Assistant", "Keychain Circle Notification",
+})
+
+# ── Filesystem noise ─────────────────────────────────────────────────
+FS_EXCLUDED_PATTERNS = (
+    "/snoopy/data/",
+    "/.git/objects/",
+    "/.git/refs/remotes/",
+    "/.git/FETCH_HEAD",
+    "/.git/ORIG_HEAD",
+    "/.git/modules/",
+    "/__pycache__/",
+    "/.DS_Store",
+)
+
 # ── Claude logs ────────────────────────────────────────────────────────
 CLAUDE_PROJECTS_DIR = Path("~/.claude/projects").expanduser()
 CLAUDE_CONTENT_PREVIEW_LEN = 500

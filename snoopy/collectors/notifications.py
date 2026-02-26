@@ -65,6 +65,14 @@ class NotificationCollector(BaseCollector):
         try:
             conn = sqlite3.connect(tmp)
 
+            # Build app_id → bundle identifier map if the app table exists
+            app_map = {}
+            try:
+                for row in conn.execute("SELECT app_id, identifier FROM app"):
+                    app_map[row[0]] = row[1]
+            except sqlite3.OperationalError:
+                pass
+
             # First run: skip historical notifications, just set watermark to current max
             if self._last_id is None:
                 row = conn.execute("SELECT MAX(rec_id) FROM record").fetchone()
@@ -85,6 +93,7 @@ class NotificationCollector(BaseCollector):
             events = []
             max_id = self._last_id
             for rec_id, app_id, delivered_date, data in cur:
+                app_name = app_map.get(app_id, str(app_id or ""))
                 content = ""
                 if data:
                     try:
@@ -100,7 +109,7 @@ class NotificationCollector(BaseCollector):
                 events.append(Event(
                     table="notification_events",
                     columns=["timestamp", "app_name", "content_preview", "response_latency_s"],
-                    values=(delivered_date or time.time(), app_id or "", content, 0),
+                    values=(delivered_date or time.time(), app_name, content, 0),
                 ))
                 max_id = max(max_id, rec_id)
 

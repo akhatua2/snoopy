@@ -7,6 +7,7 @@ Logs one row per app/window switch. Each row includes:
 - Which display/monitor the window was on
 """
 
+import subprocess
 import time
 import logging
 
@@ -18,6 +19,31 @@ from snoopy.collectors.base import BaseCollector
 import snoopy.config as config
 
 log = logging.getLogger(__name__)
+
+_CHROMIUM_BUNDLE_IDS = {
+    "com.google.Chrome",
+    "company.thebrowser.Browser",  # Arc
+}
+
+_CHROMIUM_TAB_SCRIPTS = {
+    "com.google.Chrome": 'tell application "Google Chrome" to get title of active tab of front window',
+    "company.thebrowser.Browser": 'tell application "Arc" to get title of active tab of front window',
+}
+
+
+def _get_chromium_tab_title(bundle_id: str) -> str:
+    """Get active tab title from a Chromium browser via AppleScript."""
+    script = _CHROMIUM_TAB_SCRIPTS.get(bundle_id)
+    if not script:
+        return ""
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True, text=True, timeout=1,
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
 
 # CGEventSource event type constants
 _kCGEventKeyDown = 10
@@ -80,8 +106,15 @@ class WindowCollector(BaseCollector):
         bundle_id = active.get("NSApplicationBundleIdentifier", "")
         title, bounds = self._get_frontmost_window_info()
 
+        if not title and bundle_id in _CHROMIUM_BUNDLE_IDS:
+            title = _get_chromium_tab_title(bundle_id)
+
         # Deduplicate: skip if same app + title
         if app_name == self._last_app and title == self._last_title:
+            return
+
+        # Title flicker: if same app but new title is empty, keep the real title
+        if app_name == self._last_app and not title and self._last_title:
             return
 
         now = time.time()

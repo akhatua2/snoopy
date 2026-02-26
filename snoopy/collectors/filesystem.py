@@ -73,10 +73,14 @@ class FilesystemCollector(BaseCollector):
                     continue
                 self._last_events[path] = now
 
+                path_str = path.decode("utf-8", errors="replace") if isinstance(path, bytes) else str(path)
+
+                if any(pat in path_str for pat in config.FS_EXCLUDED_PATTERNS):
+                    continue
+
                 flags = event_flags[i]
                 event_type = self._classify_flags(flags)
 
-                path_str = path.decode("utf-8", errors="replace") if isinstance(path, bytes) else str(path)
                 self.buffer.push(Event(
                     table="file_events",
                     columns=["timestamp", "event_type", "file_path", "directory"],

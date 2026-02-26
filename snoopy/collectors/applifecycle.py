@@ -74,6 +74,8 @@ class AppLifecycleCollector(BaseCollector):
         self._previous_apps = current
 
     def _log_app_event(self, event_type: str, app_name: str) -> None:
+        if app_name in config.APP_EXCLUDED:
+            return
         self.buffer.push(Event(
             table="app_events",
             columns=["timestamp", "event_type", "app_name", "bundle_id"],
