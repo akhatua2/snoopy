@@ -12,8 +12,6 @@ activity into a single SQLite database. Every app switch, browser visit,
 terminal command, message, and clipboard copy — logged with timestamps,
 durations, and context. The data never leaves your machine.
 
----
-
 ## What It Tracks
 
 | | Source | Table | Interval |
