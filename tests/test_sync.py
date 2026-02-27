@@ -2,6 +2,7 @@
 
 import threading
 import time
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -50,58 +51,58 @@ class TestState:
         assert sync.STATE_PATH.exists()
 
 
-class TestRunModal:
-    def test_parse_single_line_json(self, monkeypatch):
-        """_run_modal extracts JSON from modal stdout."""
-        fake_stdout = 'Loading model...\nUploading...\n{"score": 0.75, "n": 100}\n'
-        monkeypatch.setattr(
-            sync.subprocess,
-            "run",
-            lambda *a, **kw: type(
-                "R", (), {"returncode": 0, "stdout": fake_stdout, "stderr": ""}
-            )(),
-        )
-        result = sync._run_modal("fake_target")
-        assert result == {"score": 0.75, "n": 100}
+class TestModalSDK:
+    def test_run_training_calls_remote(self, state_dir, monkeypatch):
+        """run_training reads dataset files and calls train.remote()."""
+        # Create fake dataset files
+        (state_dir / "sft_train.jsonl").write_text('{"messages": []}\n')
+        (state_dir / "sft_val.jsonl").write_text('{"messages": []}\n')
 
-    def test_parse_multiline_json(self, monkeypatch):
-        """_run_modal extracts pretty-printed JSON blocks."""
-        fake_stdout = 'Starting...\n{\n  "score": 0.8,\n  "type_accuracy": 0.5\n}\n'
-        monkeypatch.setattr(
-            sync.subprocess,
-            "run",
-            lambda *a, **kw: type(
-                "R", (), {"returncode": 0, "stdout": fake_stdout, "stderr": ""}
-            )(),
-        )
-        result = sync._run_modal("fake_target")
-        assert result["score"] == 0.8
-        assert result["type_accuracy"] == 0.5
+        mock_fn = MagicMock()
+        mock_fn.remote.return_value = {"final_train_loss": 0.3}
 
-    def test_nonzero_returncode(self, monkeypatch):
-        monkeypatch.setattr(
-            sync.subprocess,
-            "run",
-            lambda *a, **kw: type("R", (), {"returncode": 1, "stdout": "", "stderr": "error"})(),
-        )
-        assert sync._run_modal("fake") is None
+        mock_modal = MagicMock()
+        mock_modal.Function.from_name.return_value = mock_fn
+        monkeypatch.setitem(__import__("sys").modules, "modal", mock_modal)
 
-    def test_no_json_in_output(self, monkeypatch):
-        monkeypatch.setattr(
-            sync.subprocess,
-            "run",
-            lambda *a, **kw: type(
-                "R", (), {"returncode": 0, "stdout": "just text\nno json here\n", "stderr": ""}
-            )(),
-        )
-        assert sync._run_modal("fake") is None
+        result = sync.run_training()
+        assert result == {"final_train_loss": 0.3}
+        mock_modal.Function.from_name.assert_called_once_with("linus", "train")
+        mock_fn.remote.assert_called_once()
 
-    def test_modal_not_found(self, monkeypatch):
-        def raise_fnf(*a, **kw):
-            raise FileNotFoundError("no modal")
+    def test_run_training_missing_dataset(self, state_dir):
+        """run_training returns None when dataset files don't exist."""
+        assert sync.run_training() is None
 
-        monkeypatch.setattr(sync.subprocess, "run", raise_fnf)
-        assert sync._run_modal("fake") is None
+    def test_run_training_modal_error(self, state_dir, monkeypatch):
+        """run_training returns None when Modal raises an exception."""
+        (state_dir / "sft_train.jsonl").write_text('{"messages": []}\n')
+        (state_dir / "sft_val.jsonl").write_text('{"messages": []}\n')
+
+        mock_modal = MagicMock()
+        mock_modal.Function.from_name.side_effect = Exception("connection failed")
+        monkeypatch.setitem(__import__("sys").modules, "modal", mock_modal)
+
+        assert sync.run_training() is None
+
+    def test_run_eval_calls_remote(self, state_dir, monkeypatch):
+        """run_eval reads val file and calls evaluate.remote()."""
+        (state_dir / "sft_val.jsonl").write_text('{"messages": []}\n')
+
+        mock_fn = MagicMock()
+        mock_fn.remote.return_value = {"score": 0.75}
+
+        mock_modal = MagicMock()
+        mock_modal.Function.from_name.return_value = mock_fn
+        monkeypatch.setitem(__import__("sys").modules, "modal", mock_modal)
+
+        result = sync.run_eval()
+        assert result == {"score": 0.75}
+        mock_modal.Function.from_name.assert_called_once_with("linus", "evaluate")
+
+    def test_run_eval_missing_val(self, state_dir):
+        """run_eval returns None when val file doesn't exist."""
+        assert sync.run_eval() is None
 
 
 class TestRunCycle:

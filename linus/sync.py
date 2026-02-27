@@ -16,7 +16,6 @@ import sys
 import threading
 import time
 import urllib.request
-from pathlib import Path
 
 import snoopy.config as config
 
@@ -26,8 +25,8 @@ DATA_DIR = config.DATA_DIR
 LINUS_DIR = DATA_DIR / "linus"
 STATE_PATH = LINUS_DIR / "training_state.json"
 ADAPTER_DIR = LINUS_DIR / "adapters_modal"
-APP_SCRIPT = str(Path(__file__).parent / "train.py")
 
+APP_NAME = "linus"
 EVAL_THRESHOLD_SCORE = 0.35
 SCHEDULE_INTERVAL_S = 12 * 3600  # 12 hours
 
@@ -87,73 +86,53 @@ def build_dataset() -> dict | None:
     return stats
 
 
-def _run_modal(target: str, extra_args: list[str] | None = None) -> dict | None:
-    """Run a modal target (e.g. 'linus/app.py::eval'), parse JSON from stdout."""
-    cmd = [sys.executable, "-m", "modal", "run", target]
-    if extra_args:
-        cmd.extend(extra_args)
-
-    log.info("Running: %s", " ".join(cmd))
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=3600,
-            cwd=str(Path(__file__).parent.parent),
-        )
-    except FileNotFoundError:
-        log.error("modal CLI not found")
-        return None
-    except subprocess.TimeoutExpired:
-        log.error("Modal command timed out")
-        return None
-
-    if result.returncode != 0:
-        stderr = result.stderr[-500:] if result.stderr else ""
-        log.error("Modal failed (rc=%d): %s", result.returncode, stderr)
-        return None
-
-    # Parse last JSON object from stdout
-    stdout = result.stdout
-    for line in reversed(stdout.strip().split("\n")):
-        line = line.strip()
-        if line.startswith("{"):
-            try:
-                return json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-    # Try parsing the entire last chunk as JSON
-    try:
-        # Find the last JSON block (could be multi-line pretty-printed)
-        brace_depth = 0
-        json_start = -1
-        for i in range(len(stdout) - 1, -1, -1):
-            if stdout[i] == "}":
-                if brace_depth == 0:
-                    json_end = i + 1
-                brace_depth += 1
-            elif stdout[i] == "{":
-                brace_depth -= 1
-                if brace_depth == 0:
-                    json_start = i
-                    break
-        if json_start >= 0:
-            return json.loads(stdout[json_start:json_end])
-    except (json.JSONDecodeError, UnboundLocalError):
-        pass
-
-    log.error("Could not parse JSON from modal output")
-    return None
-
-
 def run_training() -> dict | None:
-    return _run_modal(APP_SCRIPT)
+    """Call the deployed train function on Modal via the Python SDK."""
+    import modal
+
+    train_path = LINUS_DIR / "sft_train.jsonl"
+    val_path = LINUS_DIR / "sft_val.jsonl"
+
+    if not train_path.exists() or not val_path.exists():
+        log.error("Dataset files not found")
+        return None
+
+    train_jsonl = train_path.read_text()
+    val_jsonl = val_path.read_text()
+    log.info(
+        "Uploading dataset: train=%dKB, val=%dKB",
+        len(train_jsonl) // 1024,
+        len(val_jsonl) // 1024,
+    )
+
+    try:
+        train_fn = modal.Function.from_name(APP_NAME, "train")
+        result = train_fn.remote(train_jsonl=train_jsonl, val_jsonl=val_jsonl)
+        return result
+    except Exception:
+        log.exception("Modal train call failed")
+        return None
 
 
 def run_eval() -> dict | None:
-    return _run_modal(f"{APP_SCRIPT}::eval")
+    """Call the deployed evaluate function on Modal via the Python SDK."""
+    import modal
+
+    val_path = LINUS_DIR / "sft_val.jsonl"
+    if not val_path.exists():
+        log.error("Val set not found")
+        return None
+
+    val_jsonl = val_path.read_text()
+    log.info("Uploading val set: %dKB", len(val_jsonl) // 1024)
+
+    try:
+        eval_fn = modal.Function.from_name(APP_NAME, "evaluate")
+        result = eval_fn.remote(val_jsonl=val_jsonl)
+        return result
+    except Exception:
+        log.exception("Modal eval call failed")
+        return None
 
 
 def pull_adapters() -> bool:
@@ -257,7 +236,9 @@ def run_cycle():
         state["last_error_ts"] = time.time()
         save_state(state)
         log.warning(
-            "Eval below threshold (%.3f < %.3f) — keeping old adapters", score, EVAL_THRESHOLD_SCORE
+            "Eval below threshold (%.3f < %.3f) — keeping old adapters",
+            score,
+            EVAL_THRESHOLD_SCORE,
         )
         return
 
