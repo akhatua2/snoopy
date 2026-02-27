@@ -1,12 +1,12 @@
 """Tests for calendar collector — verifies living calendar with change tracking."""
 
-import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
-from snoopy.collectors.calendar import CalendarCollector, _fetch_events
+from snoopy.collectors.calendar import CalendarCollector
+from snoopy.db import Database
 
 
 @pytest.fixture
@@ -22,30 +22,39 @@ def buf(db):
     return EventBuffer(db)
 
 
-_SAMPLE_EVENTS = [
-    {
-        "uid": "ABC-123",
-        "title": "CS224N Staff Mtg",
-        "start": "2026-02-25T21:00:00Z",
-        "end": "2026-02-25T22:00:00Z",
-        "calendar": "Calendar",
-        "location": "Gates 200",
-        "all_day": False,
-        "recurring": True,
-        "attendees": ["Sarah Chen", "Diyi Yang"],
-    },
-    {
-        "uid": "DEF-456",
-        "title": "NLP Seminar",
-        "start": "2026-02-26T20:00:00Z",
-        "end": "2026-02-26T21:30:00Z",
-        "calendar": "Meeting",
-        "location": "Gates 2nd floor",
-        "all_day": False,
-        "recurring": True,
-        "attendees": [],
-    },
-]
+def _make_sample_events():
+    """Generate sample events with start times relative to now (always in the fetch window)."""
+    now = datetime.now(timezone.utc)
+    start1 = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end1 = (now + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    start2 = (now + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end2 = (now + timedelta(hours=4, minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return [
+        {
+            "uid": "ABC-123",
+            "title": "CS224N Staff Mtg",
+            "start": start1,
+            "end": end1,
+            "calendar": "Calendar",
+            "location": "Gates 200",
+            "all_day": False,
+            "recurring": True,
+            "attendees": ["Sarah Chen", "Diyi Yang"],
+        },
+        {
+            "uid": "DEF-456",
+            "title": "NLP Seminar",
+            "start": start2,
+            "end": end2,
+            "calendar": "Meeting",
+            "location": "Gates 2nd floor",
+            "all_day": False,
+            "recurring": True,
+            "attendees": [],
+        },
+    ]
+
+_SAMPLE_EVENTS = _make_sample_events()
 
 
 def _make_collector(buf, db, monkeypatch, events_fn):
