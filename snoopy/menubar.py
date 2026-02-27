@@ -1,13 +1,13 @@
 """snoopy menu bar — floating panel with animated pixel-art sprite."""
 
-import AppKit
-import objc
 import signal
 import subprocess
 import time
 from pathlib import Path
 
-from Foundation import NSObject, NSTimer, NSNotificationCenter
+import AppKit
+import objc
+from Foundation import NSNotificationCenter, NSObject, NSTimer
 from PyObjCTools import AppHelper
 
 _PLIST_LABEL = "com.snoopy.daemon"
@@ -77,12 +77,16 @@ def _compose_frame(tail='right', look='center', eyes='open', ear='both'):
     # Eye positions depend on look direction
     if look == 'left':
         eye_cols = (14, 17)
-        grid[5][15] = 2; grid[5][18] = 2  # clear default eyes
-        grid[5][14] = 1; grid[5][17] = 1  # shifted eyes
+        grid[5][15] = 2
+        grid[5][18] = 2
+        grid[5][14] = 1
+        grid[5][17] = 1
     elif look == 'right':
         eye_cols = (16, 19)
-        grid[5][15] = 2; grid[5][18] = 2
-        grid[5][16] = 1; grid[5][19] = 1
+        grid[5][15] = 2
+        grid[5][18] = 2
+        grid[5][16] = 1
+        grid[5][19] = 1
     else:
         eye_cols = (15, 18)
 

@@ -11,17 +11,15 @@ rather than the plain text column.
 
 import logging
 import os
-import plistlib
-import re
 import shutil
 import sqlite3
 import tempfile
 import time
 from pathlib import Path
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +103,10 @@ class MessagesCollector(BaseCollector):
                 self._last_id = row[0] or 0
                 conn.close()
                 self.set_watermark(str(self._last_id))
-                log.info("[%s] first run — skipping existing messages, tracking new only", self.name)
+                log.info(
+                    "[%s] first run — skipping existing messages, tracking new only",
+                    self.name,
+                )
                 return
 
             cur = conn.execute(
@@ -124,7 +125,9 @@ class MessagesCollector(BaseCollector):
 
             events = []
             max_id = self._last_id
-            for rowid, text, is_from_me, date, service, has_attach, handle_id, chat_name, attr_body, dest_caller in cur:
+            for row in cur:
+                rowid, text, is_from_me, date, service, has_attach, \
+                    handle_id, chat_name, attr_body, dest_caller = row
 
                 # Convert Apple nanosecond timestamp to Unix epoch
                 ts = date / 1_000_000_000 + _APPLE_EPOCH_OFFSET if date else time.time()

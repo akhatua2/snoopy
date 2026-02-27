@@ -6,10 +6,10 @@ than using CLLocationManager directly, which requires an NSRunLoop and
 an app bundle with NSLocationUsageDescription.
 """
 
+import logging
 import shutil
 import subprocess
 import time
-import logging
 
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector

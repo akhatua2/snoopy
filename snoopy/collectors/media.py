@@ -8,9 +8,9 @@ import logging
 import subprocess
 import time
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,10 @@ class MediaCollector(BaseCollector):
         """Run nowplaying-cli and parse its output."""
         try:
             result = subprocess.run(
-                ["nowplaying-cli", "get", "title", "artist", "album", "playbackRate", "clientPropertiesDeviceName"],
+                [
+                    "nowplaying-cli", "get", "title", "artist",
+                    "album", "playbackRate", "clientPropertiesDeviceName",
+                ],
                 capture_output=True, text=True, timeout=3,
             )
         except FileNotFoundError:

@@ -1,12 +1,12 @@
 """Tests for snoopy.buffer — EventBuffer."""
 
-import time
 import threading
+import time
 
 import pytest
 
+from snoopy.buffer import Event, EventBuffer
 from snoopy.db import Database
-from snoopy.buffer import EventBuffer, Event
 
 
 @pytest.fixture

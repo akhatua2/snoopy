@@ -9,10 +9,9 @@ Production hardening:
 - Connection health check with automatic reconnect
 """
 
-import sqlite3
 import logging
+import sqlite3
 import threading
-from contextlib import contextmanager
 from pathlib import Path
 
 from snoopy.config import DB_PATH

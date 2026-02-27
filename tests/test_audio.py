@@ -1,12 +1,11 @@
 """Tests for audio collector — verifies mic/speaker transition detection."""
 
-import time
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
-from snoopy.collectors.audio import AudioCollector, _is_device_running, _get_default_device
+from snoopy.collectors.audio import AudioCollector, _get_default_device, _is_device_running
+from snoopy.db import Database
 
 
 @pytest.fixture
@@ -50,8 +49,14 @@ class TestAudioCollector:
         # Mock CoreAudio to simulate: inactive → active → active → inactive
         states = iter([True, True, False])
 
-        monkeypatch.setattr("snoopy.collectors.audio._is_device_running", lambda dev_id: next(states))
-        monkeypatch.setattr("snoopy.collectors.audio._find_audio_process", lambda: "zoom.us")
+        monkeypatch.setattr(
+            "snoopy.collectors.audio._is_device_running",
+            lambda dev_id: next(states),
+        )
+        monkeypatch.setattr(
+            "snoopy.collectors.audio._find_audio_process",
+            lambda: "zoom.us",
+        )
 
         c = AudioCollector(buf, db)
         c._input_device = 42  # fake device ID

@@ -9,9 +9,9 @@ import time
 
 import objc
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class WifiCollector(BaseCollector):
 
     def setup(self) -> None:
         self._last_ssid: str | None = None
-        self._client = CWWiFiClient.sharedWiFiClient()  # noqa: F821
+        self._client = CWWiFiClient.sharedWiFiClient()  # noqa: F821  # type: ignore[name-defined]
 
     def collect(self) -> None:
         iface = self._client.interface()

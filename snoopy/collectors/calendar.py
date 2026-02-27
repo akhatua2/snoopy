@@ -18,8 +18,8 @@ import subprocess
 import tempfile
 import time
 
-from snoopy.collectors.base import BaseCollector
 import snoopy.config as config
+from snoopy.collectors.base import BaseCollector
 
 log = logging.getLogger(__name__)
 
@@ -197,7 +197,7 @@ class CalendarCollector(BaseCollector):
         """Mark active events as removed if they're within the helper's
         fetch window (-1 day to +7 days) but weren't returned."""
         # Helper fetches from now-1day to now+7days; use ISO strings for comparison
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
         window_start = datetime.fromtimestamp(now, tz=timezone.utc) - timedelta(days=1)
         window_end = datetime.fromtimestamp(now, tz=timezone.utc) + timedelta(days=7)
         window_min = window_start.strftime("%Y-%m-%dT%H:%M:%S")

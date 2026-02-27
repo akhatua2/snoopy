@@ -1,10 +1,9 @@
 """snoopy CLI — install, start, stop, and manage the snoopy daemon."""
 
 import argparse
-import os
 import shutil
-import subprocess
 import sqlite3
+import subprocess
 import sys
 import textwrap
 import time
@@ -221,9 +220,16 @@ def _register_claude_hooks(hook_path: Path, settings_path: Path) -> None:
     hooks = settings.setdefault("hooks", {})
     hook_cmd = str(hook_path)
     stop_entry = {"matcher": "", "hooks": [{"type": "command", "command": hook_cmd}]}
-    start_entry = {"matcher": "", "hooks": [{"type": "command", "command": f"{hook_cmd} session-start"}]}
+    start_entry = {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": f"{hook_cmd} session-start"}],
+    }
 
-    for event, entry in [("Stop", stop_entry), ("SessionStart", start_entry), ("SessionEnd", stop_entry)]:
+    events = [
+        ("Stop", stop_entry), ("SessionStart", start_entry),
+        ("SessionEnd", stop_entry),
+    ]
+    for event, entry in events:
         entries = hooks.setdefault(event, [])
         entries[:] = [e for e in entries if "snoopy-hook" not in json.dumps(e)]
         entries.append(entry)
@@ -305,8 +311,8 @@ def cmd_status(args: argparse.Namespace) -> None:
     running = _is_running()
     pid = _pid()
 
-    print(f"\n  snoopy status")
-    print(f"  ──────────────────\n")
+    print("\n  snoopy status")
+    print("  ──────────────────\n")
     print(f"  Daemon       {'running' if running else 'stopped'}" +
           (f" (pid {pid})" if running and pid else ""))
     print(f"  Data dir     {DATA_DIR}")

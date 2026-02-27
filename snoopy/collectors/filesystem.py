@@ -11,9 +11,9 @@ import time
 
 import FSEvents
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -60,8 +60,7 @@ class FilesystemCollector(BaseCollector):
 
     def _run_fsevents(self, watch_paths: list[str]) -> None:
         """Run the FSEvents stream on a CFRunLoop."""
-        import objc
-        from Foundation import NSRunLoop, NSDate
+        from Foundation import NSDate, NSRunLoop
 
         def callback(stream_ref, client_info, num_events, event_paths, event_flags, event_ids):
             now = time.time()
@@ -73,7 +72,10 @@ class FilesystemCollector(BaseCollector):
                     continue
                 self._last_events[path] = now
 
-                path_str = path.decode("utf-8", errors="replace") if isinstance(path, bytes) else str(path)
+                path_str = (
+                    path.decode("utf-8", errors="replace")
+                    if isinstance(path, bytes) else str(path)
+                )
 
                 if any(pat in path_str for pat in config.FS_EXCLUDED_PATTERNS):
                     continue
@@ -84,7 +86,10 @@ class FilesystemCollector(BaseCollector):
                 self.buffer.push(Event(
                     table="file_events",
                     columns=["timestamp", "event_type", "file_path", "directory"],
-                    values=(now, event_type, path_str, path_str.rsplit("/", 1)[0] if "/" in path_str else ""),
+                    values=(
+                        now, event_type, path_str,
+                        path_str.rsplit("/", 1)[0] if "/" in path_str else "",
+                    ),
                 ))
 
         self._stream = FSEvents.FSEventStreamCreate(

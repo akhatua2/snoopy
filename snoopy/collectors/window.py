@@ -7,16 +7,16 @@ Logs one row per app/window switch. Each row includes:
 - Which display/monitor the window was on
 """
 
+import logging
 import subprocess
 import time
-import logging
 
 import Quartz
-from AppKit import NSWorkspace, NSScreen
+from AppKit import NSScreen, NSWorkspace
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -26,8 +26,12 @@ _CHROMIUM_BUNDLE_IDS = {
 }
 
 _CHROMIUM_TAB_SCRIPTS = {
-    "com.google.Chrome": 'tell application "Google Chrome" to get title of active tab of front window',
-    "company.thebrowser.Browser": 'tell application "Arc" to get title of active tab of front window',
+    "com.google.Chrome": (
+        'tell application "Google Chrome" to get title of active tab of front window'
+    ),
+    "company.thebrowser.Browser": (
+        'tell application "Arc" to get title of active tab of front window'
+    ),
 }
 
 

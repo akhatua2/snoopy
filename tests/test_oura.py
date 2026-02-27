@@ -2,9 +2,9 @@
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
-from snoopy.collectors.oura import OuraCollector, _merge_by_day, _fetch_all
+from snoopy.collectors.oura import OuraCollector, _merge_by_day
+from snoopy.db import Database
 
 
 @pytest.fixture

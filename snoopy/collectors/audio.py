@@ -15,7 +15,6 @@ from ctypes import Structure, byref, c_uint32, sizeof
 
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -49,12 +48,19 @@ def _get_default_device(is_input: bool) -> int | None:
     """Get the AudioObjectID of the default input or output device."""
     if not _ca:
         return None
-    selector = kAudioHardwarePropertyDefaultInputDevice if is_input else kAudioHardwarePropertyDefaultOutputDevice
-    addr = AudioObjectPropertyAddress(selector, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain)
+    if is_input:
+        selector = kAudioHardwarePropertyDefaultInputDevice
+    else:
+        selector = kAudioHardwarePropertyDefaultOutputDevice
+    addr = AudioObjectPropertyAddress(
+        selector, kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain,
+    )
     device_id = c_uint32(0)
     size = c_uint32(sizeof(c_uint32))
     status = _ca.AudioObjectGetPropertyData(
-        c_uint32(kAudioObjectSystemObject), byref(addr), c_uint32(0), None, byref(size), byref(device_id)
+        c_uint32(kAudioObjectSystemObject), byref(addr),
+        c_uint32(0), None, byref(size), byref(device_id),
     )
     return device_id.value if status == 0 else None
 

@@ -5,9 +5,9 @@ import time
 
 import pytest
 
+from snoopy.buffer import EventBuffer
+from snoopy.collectors.claude import ClaudeCollector, parse_transcript
 from snoopy.db import Database
-from snoopy.buffer import EventBuffer, Event
-from snoopy.collectors.claude import parse_transcript, ClaudeCollector
 
 
 @pytest.fixture
@@ -75,7 +75,9 @@ class TestParseTranscript:
         assert len(events1) == 2
 
         with open(transcript, "a") as f:
-            f.write(json.dumps({"type": "user", "timestamp": "2026-02-25T10:00:02Z", "message": {"content": "new"}}) + "\n")
+            entry = {"type": "user", "timestamp": "2026-02-25T10:00:02Z",
+                     "message": {"content": "new"}}
+            f.write(json.dumps(entry) + "\n")
 
         events2, offset2 = parse_transcript(transcript, since_offset=offset1)
         assert len(events2) == 1
@@ -107,7 +109,9 @@ class TestClaudeCollector:
         # Append a new entry and collect again
         time.sleep(0.05)
         with open(transcript, "a") as f:
-            f.write(json.dumps({"type": "user", "timestamp": "2026-02-25T10:00:01Z", "message": {"content": "second"}}) + "\n")
+            entry = {"type": "user", "timestamp": "2026-02-25T10:00:01Z",
+                     "message": {"content": "second"}}
+            f.write(json.dumps(entry) + "\n")
 
         c.collect()
         buf.flush()

@@ -15,7 +15,17 @@ if _env_path.exists():
             _k, _, _v = _line.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
-DATA_DIR = Path(os.environ.get("SNOOPY_DATA_DIR", str(_PROJECT_ROOT / "data")))
+
+def _default_data_dir() -> Path:
+    env = os.environ.get("SNOOPY_DATA_DIR")
+    if env:
+        return Path(env)
+    if (_PROJECT_ROOT / "pyproject.toml").exists():
+        return _PROJECT_ROOT / "data"
+    return Path.home() / ".snoopy"
+
+
+DATA_DIR = _default_data_dir()
 DB_PATH = DATA_DIR / "snoopy.db"
 LOG_PATH = DATA_DIR / "snoopy.log"
 PID_PATH = DATA_DIR / "snoopy.pid"

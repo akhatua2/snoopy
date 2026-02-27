@@ -4,9 +4,9 @@ import subprocess
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
 from snoopy.collectors.battery import BatteryCollector, _parse_pmset
+from snoopy.db import Database
 
 
 @pytest.fixture

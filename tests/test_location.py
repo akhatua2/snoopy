@@ -4,10 +4,10 @@ import subprocess
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
 from snoopy.collectors import location as loc_mod
 from snoopy.collectors.location import LocationCollector
+from snoopy.db import Database
 
 
 @pytest.fixture
