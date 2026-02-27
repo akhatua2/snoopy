@@ -17,9 +17,9 @@ import tempfile
 import time
 from pathlib import Path
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +63,10 @@ class BrowserCollector(BaseCollector):
                 max_id = row[0] or 0
                 conn.close()
                 self.db.set_watermark(watermark_key, str(max_id), time.time())
-                log.info("[%s] first run — skipping %s history, tracking new visits only", self.name, browser)
+                log.info(
+                    "[%s] first run — skipping %s history, tracking new visits only",
+                    self.name, browser,
+                )
                 return
 
             cur = conn.execute(
@@ -114,7 +117,10 @@ class BrowserCollector(BaseCollector):
                 max_ts = row[0] or 0
                 conn.close()
                 self.db.set_watermark(watermark_key, str(max_ts), time.time())
-                log.info("[%s] first run — skipping safari history, tracking new visits only", self.name)
+                log.info(
+                    "[%s] first run — skipping safari history, tracking new visits only",
+                    self.name,
+                )
                 return
 
             last_ts = float(last_ts_str)
@@ -172,7 +178,10 @@ class BrowserCollector(BaseCollector):
                 max_id = row[0] or 0
                 conn.close()
                 self.db.set_watermark(watermark_key, str(max_id), time.time())
-                log.info("[%s] first run — skipping firefox history, tracking new visits only", self.name)
+                log.info(
+                    "[%s] first run — skipping firefox history, tracking new visits only",
+                    self.name,
+                )
                 return
 
             cur = conn.execute(

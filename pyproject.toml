@@ -11,8 +11,12 @@ dependencies = [
 ]
 
 [project.scripts]
-snoopy = "snoopy.daemon:main"
+snoopy = "snoopy.cli:main"
 snoopy-hook = "snoopy.hooks:main"
+snoopy-menubar = "snoopy.menubar:main"
+
+[tool.setuptools.packages.find]
+include = ["snoopy*"]
 
 [tool.uv]
 package = true
@@ -20,4 +24,25 @@ package = true
 [dependency-groups]
 dev = [
     "pytest",
+    "ruff",
+    "ty",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_system.py" = ["E402"]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.rules]
+# PyObjC frameworks (Quartz, AppKit, FSEvents) use dynamic binding;
+# ty cannot resolve their attributes at analysis time.
+unresolved-attribute = "ignore"
+unresolved-import = "ignore"

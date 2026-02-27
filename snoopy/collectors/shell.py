@@ -5,13 +5,11 @@ Tracks file byte offset as watermark so we only read new entries.
 """
 
 import logging
-import os
 import re
-import time
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +27,10 @@ class ShellCollector(BaseCollector):
         elif config.ZSH_HISTORY.exists():
             # First run: skip to end of file so we only track new commands
             self._offset = config.ZSH_HISTORY.stat().st_size
-            log.info("[%s] first run — skipping existing history, tracking new commands only", self.name)
+            log.info(
+                "[%s] first run — skipping existing history, tracking new commands only",
+                self.name,
+            )
         else:
             self._offset = 0
 

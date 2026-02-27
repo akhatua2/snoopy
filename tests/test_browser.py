@@ -5,9 +5,9 @@ import time
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
-from snoopy.collectors.browser import BrowserCollector, _CHROME_EPOCH_OFFSET
+from snoopy.collectors.browser import _CHROME_EPOCH_OFFSET, BrowserCollector
+from snoopy.db import Database
 
 
 @pytest.fixture
@@ -26,11 +26,23 @@ def buf(db):
 def _create_fake_chrome_db(path) -> None:
     """Minimal Chromium history DB with 2 visits."""
     conn = sqlite3.connect(str(path))
-    conn.execute("CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, typed_count INTEGER, last_visit_time INTEGER)")
-    conn.execute("CREATE TABLE visits (id INTEGER PRIMARY KEY, url INTEGER, visit_time INTEGER, visit_duration INTEGER, transition INTEGER)")
+    conn.execute(
+        "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT,"
+        " visit_count INTEGER, typed_count INTEGER, last_visit_time INTEGER)"
+    )
+    conn.execute(
+        "CREATE TABLE visits (id INTEGER PRIMARY KEY, url INTEGER,"
+        " visit_time INTEGER, visit_duration INTEGER, transition INTEGER)"
+    )
     now_chrome = int(time.time() * 1_000_000) + _CHROME_EPOCH_OFFSET
-    conn.execute("INSERT INTO urls VALUES (1, 'https://example.com', 'Example', 1, 0, ?)", (now_chrome,))
-    conn.execute("INSERT INTO urls VALUES (2, 'https://test.dev', 'Test', 1, 0, ?)", (now_chrome,))
+    conn.execute(
+        "INSERT INTO urls VALUES (1, 'https://example.com', 'Example', 1, 0, ?)",
+        (now_chrome,),
+    )
+    conn.execute(
+        "INSERT INTO urls VALUES (2, 'https://test.dev', 'Test', 1, 0, ?)",
+        (now_chrome,),
+    )
     conn.execute("INSERT INTO visits VALUES (1, 1, ?, 5000000, 0)", (now_chrome,))
     conn.execute("INSERT INTO visits VALUES (2, 2, ?, 3000000, 0)", (now_chrome - 60_000_000,))
     conn.commit()
@@ -60,7 +72,10 @@ class TestBrowserCollector:
         # Add a new visit (id=3) to the fake Chrome DB
         now_chrome = int(time.time() * 1_000_000) + _CHROME_EPOCH_OFFSET
         conn = sqlite3.connect(str(fake_chrome))
-        conn.execute("INSERT INTO urls VALUES (3, 'https://new.com', 'New', 1, 0, ?)", (now_chrome,))
+        conn.execute(
+            "INSERT INTO urls VALUES (3, 'https://new.com', 'New', 1, 0, ?)",
+            (now_chrome,),
+        )
         conn.execute("INSERT INTO visits VALUES (3, 3, ?, 1000000, 0)", (now_chrome,))
         conn.commit()
         conn.close()

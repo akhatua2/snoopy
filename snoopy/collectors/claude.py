@@ -18,14 +18,14 @@ import logging
 import time
 from pathlib import Path
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
 
-def parse_transcript(transcript_path: Path, since_offset: int = 0) -> list[dict]:
+def parse_transcript(transcript_path: Path, since_offset: int = 0) -> tuple[list[dict], int]:
     """Parse a Claude Code JSONL transcript into structured events.
 
     Returns a list of dicts with keys: timestamp, session_id, message_type,
@@ -78,7 +78,9 @@ def parse_transcript(transcript_path: Path, since_offset: int = 0) -> list[dict]
                             "timestamp": ts,
                             "session_id": session_id,
                             "message_type": "assistant_text",
-                            "content_preview": block.get("text", "")[:config.CLAUDE_CONTENT_PREVIEW_LEN],
+                            "content_preview": block.get("text", "")[
+                                :config.CLAUDE_CONTENT_PREVIEW_LEN
+                            ],
                             "project_path": project_path,
                         })
 
@@ -103,7 +105,9 @@ def parse_transcript(transcript_path: Path, since_offset: int = 0) -> list[dict]
                         "timestamp": ts,
                         "session_id": session_id,
                         "message_type": f"tool_result:{data.get('tool_name', '')}",
-                        "content_preview": str(data.get("output", ""))[:config.CLAUDE_CONTENT_PREVIEW_LEN],
+                        "content_preview": str(data.get("output", ""))[
+                            :config.CLAUDE_CONTENT_PREVIEW_LEN
+                        ],
                         "project_path": project_path,
                     })
 
@@ -118,7 +122,10 @@ def _extract_content(msg: dict) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        texts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+        texts = [
+            b.get("text", "") for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        ]
         return " ".join(texts)
     return ""
 
@@ -145,7 +152,7 @@ def _tool_input_preview(tool_name: str, tool_input: dict) -> str:
 
 def _parse_iso_ts(ts_str: str) -> float:
     """Parse ISO 8601 timestamp to epoch float."""
-    from datetime import datetime, timezone
+    from datetime import datetime
     try:
         # Handle "2026-02-25T08:16:18.720Z"
         ts_str = ts_str.replace("Z", "+00:00")
@@ -187,7 +194,10 @@ class ClaudeCollector(BaseCollector):
                 self._file_state[str_path] = (stat.st_mtime, stat.st_size)
             self.set_watermark(json.dumps(self._file_state))
             self._initialized = True
-            log.info("[%s] first run — indexed %d transcript files, tracking new events only", self.name, len(self._file_state))
+            log.info(
+                "[%s] first run — indexed %d transcript files, tracking new events only",
+                self.name, len(self._file_state),
+            )
             return
 
         all_events = []
@@ -203,11 +213,17 @@ class ClaudeCollector(BaseCollector):
             self._file_state[str_path] = (current_mtime, new_offset)
 
             for ev in parsed:
+                cols = [
+                    "timestamp", "session_id", "message_type",
+                    "content_preview", "project_path",
+                ]
+                vals = (
+                    ev["timestamp"], ev["session_id"],
+                    ev["message_type"], ev["content_preview"],
+                    ev["project_path"],
+                )
                 all_events.append(Event(
-                    table="claude_events",
-                    columns=["timestamp", "session_id", "message_type", "content_preview", "project_path"],
-                    values=(ev["timestamp"], ev["session_id"], ev["message_type"],
-                            ev["content_preview"], ev["project_path"]),
+                    table="claude_events", columns=cols, values=vals,
                 ))
 
         if all_events:

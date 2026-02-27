@@ -4,9 +4,11 @@ import time
 
 import pytest
 
-from snoopy.db import Database
+Quartz = pytest.importorskip("Quartz")
+
 from snoopy.buffer import EventBuffer
 from snoopy.collectors.system import SystemCollector, _is_screen_locked
+from snoopy.db import Database
 
 
 @pytest.fixture

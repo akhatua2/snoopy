@@ -14,9 +14,9 @@ import tempfile
 import time
 from pathlib import Path
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,10 @@ class NotificationCollector(BaseCollector):
                 self._last_id = row[0] or 0
                 conn.close()
                 self.set_watermark(str(self._last_id))
-                log.info("[%s] first run — skipping existing notifications, tracking new only", self.name)
+                log.info(
+                    "[%s] first run — skipping existing notifications, tracking new only",
+                    self.name,
+                )
                 return
 
             cur = conn.execute(
@@ -121,6 +124,8 @@ class NotificationCollector(BaseCollector):
                 self.set_watermark(str(max_id))
                 log.info("[%s] collected %d notifications", self.name, len(events))
         except sqlite3.OperationalError:
-            log.warning("notification DB query failed (schema may have changed on this macOS version)")
+            log.warning(
+                "notification DB query failed (schema may have changed on this macOS version)"
+            )
         finally:
             Path(tmp).unlink(missing_ok=True)

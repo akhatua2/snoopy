@@ -10,8 +10,8 @@ import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from snoopy.collectors.base import BaseCollector
 import snoopy.config as config
+from snoopy.collectors.base import BaseCollector
 
 log = logging.getLogger(__name__)
 

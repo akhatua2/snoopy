@@ -4,8 +4,8 @@ import logging
 import threading
 from dataclasses import dataclass
 
-from snoopy.db import Database
 import snoopy.config as config
+from snoopy.db import Database
 
 log = logging.getLogger(__name__)
 

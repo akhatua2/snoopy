@@ -1,12 +1,11 @@
 """Tests for app lifecycle collector — verifies launch/quit detection."""
 
-import subprocess
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
 from snoopy.collectors.applifecycle import AppLifecycleCollector, _get_running_apps
+from snoopy.db import Database
 
 
 @pytest.fixture
@@ -37,7 +36,7 @@ class TestAppLifecycleCollector:
         """First poll should snapshot running apps without logging any events."""
         monkeypatch.setattr(
             "snoopy.collectors.applifecycle._get_running_apps",
-            lambda: {"Safari", "Finder"},
+            lambda: {"TextEdit", "Finder"},
         )
 
         c = AppLifecycleCollector(buf, db)
@@ -51,7 +50,7 @@ class TestAppLifecycleCollector:
         """A new app appearing should be logged as a launch event."""
         snapshots = iter([
             {"Finder"},
-            {"Finder", "Safari"},
+            {"Finder", "TextEdit"},
         ])
         monkeypatch.setattr(
             "snoopy.collectors.applifecycle._get_running_apps",
@@ -61,7 +60,7 @@ class TestAppLifecycleCollector:
         c = AppLifecycleCollector(buf, db)
         c.setup()
         c.collect()  # baseline
-        c.collect()  # Safari appeared
+        c.collect()  # TextEdit appeared
         buf.flush()
 
         assert db.count("app_events") == 1
@@ -69,12 +68,12 @@ class TestAppLifecycleCollector:
             "SELECT event_type, app_name FROM app_events"
         )
         row = cur.fetchone()
-        assert row == ("launch", "Safari")
+        assert row == ("launch", "TextEdit")
 
     def test_detects_app_quit(self, buf, db, monkeypatch):
         """An app disappearing should be logged as a quit event."""
         snapshots = iter([
-            {"Finder", "Safari"},
+            {"Finder", "TextEdit"},
             {"Finder"},
         ])
         monkeypatch.setattr(
@@ -85,7 +84,7 @@ class TestAppLifecycleCollector:
         c = AppLifecycleCollector(buf, db)
         c.setup()
         c.collect()  # baseline
-        c.collect()  # Safari gone
+        c.collect()  # TextEdit gone
         buf.flush()
 
         assert db.count("app_events") == 1
@@ -93,13 +92,13 @@ class TestAppLifecycleCollector:
             "SELECT event_type, app_name FROM app_events"
         )
         row = cur.fetchone()
-        assert row == ("quit", "Safari")
+        assert row == ("quit", "TextEdit")
 
     def test_simultaneous_launch_and_quit(self, buf, db, monkeypatch):
         """Multiple apps changing at once should produce events for each."""
         snapshots = iter([
-            {"Finder", "Safari"},
-            {"Finder", "Chrome"},
+            {"Finder", "TextEdit"},
+            {"Finder", "Notes"},
         ])
         monkeypatch.setattr(
             "snoopy.collectors.applifecycle._get_running_apps",

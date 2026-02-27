@@ -13,31 +13,33 @@ import signal
 import sys
 import time
 
+from snoopy.buffer import EventBuffer
+from snoopy.collectors.applifecycle import AppLifecycleCollector
+from snoopy.collectors.audio import AudioCollector
+from snoopy.collectors.battery import BatteryCollector
+from snoopy.collectors.browser import BrowserCollector
+from snoopy.collectors.calendar import CalendarCollector
+from snoopy.collectors.clipboard import ClipboardCollector
+from snoopy.collectors.filesystem import FilesystemCollector
+from snoopy.collectors.location import LocationCollector
+from snoopy.collectors.mail import MailCollector
+from snoopy.collectors.media import MediaCollector
+from snoopy.collectors.messages import MessagesCollector
+from snoopy.collectors.network import NetworkCollector
+from snoopy.collectors.notifications import NotificationCollector
+from snoopy.collectors.oura import OuraCollector
+from snoopy.collectors.shell import ShellCollector
+from snoopy.collectors.system import SystemCollector
+from snoopy.collectors.wifi import WifiCollector
+from snoopy.collectors.window import WindowCollector
 from snoopy.config import (
-    DATA_DIR, LOG_PATH, PID_PATH,
-    BUFFER_FLUSH_INTERVAL, HEALTH_HEARTBEAT_INTERVAL,
+    BUFFER_FLUSH_INTERVAL,
+    DATA_DIR,
+    HEALTH_HEARTBEAT_INTERVAL,
+    LOG_PATH,
+    PID_PATH,
 )
 from snoopy.db import Database
-from snoopy.buffer import EventBuffer
-
-from snoopy.collectors.window import WindowCollector
-from snoopy.collectors.location import LocationCollector
-from snoopy.collectors.browser import BrowserCollector
-from snoopy.collectors.shell import ShellCollector
-from snoopy.collectors.media import MediaCollector
-from snoopy.collectors.wifi import WifiCollector
-from snoopy.collectors.clipboard import ClipboardCollector
-from snoopy.collectors.network import NetworkCollector
-from snoopy.collectors.filesystem import FilesystemCollector
-from snoopy.collectors.notifications import NotificationCollector
-from snoopy.collectors.audio import AudioCollector
-from snoopy.collectors.messages import MessagesCollector
-from snoopy.collectors.system import SystemCollector
-from snoopy.collectors.applifecycle import AppLifecycleCollector
-from snoopy.collectors.battery import BatteryCollector
-from snoopy.collectors.calendar import CalendarCollector
-from snoopy.collectors.oura import OuraCollector
-from snoopy.collectors.mail import MailCollector
 
 log = logging.getLogger("snoopy")
 
@@ -143,6 +145,7 @@ class Daemon:
         log.info("snoopy daemon reloaded — %d collectors running", len(self.collectors))
 
     def _start_collectors(self) -> None:
+        assert self.buffer is not None
         for cls in ALL_COLLECTORS:
             collector = cls(self.buffer, self.db)
             self.collectors.append(collector)

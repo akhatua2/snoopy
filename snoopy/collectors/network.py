@@ -9,9 +9,9 @@ import re
 import subprocess
 import time
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -65,4 +65,7 @@ class NetworkCollector(BaseCollector):
 
         if events:
             self.buffer.push_many(events)
-            log.info("[%s] %d new connections (%d total active)", self.name, len(events), len(current))
+            log.info(
+                "[%s] %d new connections (%d total active)",
+                self.name, len(events), len(current),
+            )

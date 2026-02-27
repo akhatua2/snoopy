@@ -4,9 +4,9 @@ import time
 
 import pytest
 
-from snoopy.db import Database
-from snoopy.buffer import EventBuffer, Event
+from snoopy.buffer import Event, EventBuffer
 from snoopy.collectors.base import BaseCollector
+from snoopy.db import Database
 
 
 class DummyCollector(BaseCollector):

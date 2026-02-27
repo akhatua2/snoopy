@@ -13,10 +13,9 @@ import sys
 import time
 from pathlib import Path
 
+from snoopy.buffer import Event, EventBuffer
 from snoopy.collectors.claude import parse_transcript
 from snoopy.db import Database
-from snoopy.buffer import EventBuffer, Event
-import snoopy.config as config
 
 
 def _read_hook_input() -> dict:
@@ -55,9 +54,15 @@ def _log_transcript() -> int:
         for ev in parsed:
             buf.push(Event(
                 table="claude_events",
-                columns=["timestamp", "session_id", "message_type", "content_preview", "project_path"],
-                values=(ev["timestamp"], ev["session_id"], ev["message_type"],
-                        ev["content_preview"], ev["project_path"]),
+                columns=[
+                    "timestamp", "session_id", "message_type",
+                    "content_preview", "project_path",
+                ],
+                values=(
+                    ev["timestamp"], ev["session_id"],
+                    ev["message_type"], ev["content_preview"],
+                    ev["project_path"],
+                ),
             ))
 
         buf.flush()

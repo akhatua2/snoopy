@@ -1,12 +1,11 @@
 """Tests for media collector — verifies deduplication and event creation."""
 
-import time
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
 from snoopy.collectors.media import MediaCollector
+from snoopy.db import Database
 
 
 @pytest.fixture

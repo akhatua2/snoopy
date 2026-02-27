@@ -16,9 +16,9 @@ import time
 from pathlib import Path
 from urllib.parse import unquote
 
+import snoopy.config as config
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
-import snoopy.config as config
 
 log = logging.getLogger(__name__)
 
@@ -155,7 +155,10 @@ class MailCollector(BaseCollector):
 
         self._last_id = max_id
         self.set_watermark(str(max_id))
-        log.info("[%s] first run — seeded %d messages from last %d day(s)", self.name, len(events), config.MAIL_SEED_DAYS)
+        log.info(
+            "[%s] first run — seeded %d messages from last %d day(s)",
+            self.name, len(events), config.MAIL_SEED_DAYS,
+        )
 
     def _incremental(self, conn: sqlite3.Connection, mailbox_map: dict[int, str]) -> None:
         """Fetch messages with ROWID > watermark."""
@@ -165,6 +168,7 @@ class MailCollector(BaseCollector):
         )
 
         events = []
+        assert self._last_id is not None
         max_id = self._last_id
         for rowid, date_received, read, deleted, flagged, mailbox_id, subject, sender in cur:
             ts = date_received if date_received else time.time()

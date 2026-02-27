@@ -1,12 +1,11 @@
 """Tests for wifi collector — verifies network change detection."""
 
-import time
 
 import pytest
 
-from snoopy.db import Database
 from snoopy.buffer import EventBuffer
 from snoopy.collectors.wifi import WifiCollector
+from snoopy.db import Database
 
 
 @pytest.fixture
