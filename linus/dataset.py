@@ -173,22 +173,24 @@ def _format_context(
     return "\n".join(lines)
 
 
-_NON_USER_ACTIONS = frozenset({
-    SESSION_BREAK,
-    # Stimuli — things that happen TO the user (useful context, not targets)
-    "mail:recv",
-    "message:recv",
-    "notify",
-    "mic:on",
-    "mic:off",
-    # Claude's actions — not the user's (user action is claude:user)
-    "claude:Bash",
-    "claude:Edit",
-    "claude:Read",
-    "claude:Write",
-    "claude:Grep",
-    "claude:Glob",
-})
+_NON_USER_ACTIONS = frozenset(
+    {
+        SESSION_BREAK,
+        # Stimuli — things that happen TO the user (useful context, not targets)
+        "mail:recv",
+        "message:recv",
+        "notify",
+        "mic:on",
+        "mic:off",
+        # Claude's actions — not the user's (user action is claude:user)
+        "claude:Bash",
+        "claude:Edit",
+        "claude:Read",
+        "claude:Write",
+        "claude:Grep",
+        "claude:Glob",
+    }
+)
 
 
 def _is_predictable(action: Action) -> bool:
@@ -223,9 +225,7 @@ def _build_examples(
         # All events go in the timeline (stimuli are visible context)
         all_events = [a for a in session if a.action_type != SESSION_BREAK]
         # But we only predict user-initiated actions
-        target_indices = [
-            i for i, a in enumerate(all_events) if _is_predictable(a)
-        ]
+        target_indices = [i for i, a in enumerate(all_events) if _is_predictable(a)]
 
         for ti in target_indices:
             target = all_events[ti]
@@ -245,14 +245,16 @@ def _build_examples(
             prompt = _format_context(context, target.timestamp, cfg)
             target_text = target.format()
 
-            examples.append({
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                    {"role": "assistant", "content": target_text},
-                ],
-                "_ts": target.timestamp,
-            })
+            examples.append(
+                {
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                        {"role": "assistant", "content": target_text},
+                    ],
+                    "_ts": target.timestamp,
+                }
+            )
 
     return examples
 
@@ -327,8 +329,9 @@ def build_dataset(
         oura_scores = _load_oura_scores(conn)
     finally:
         conn.close()
-    log.info("Ambient context: %d calendar events, %d oura days",
-             len(calendar_events), len(oura_scores))
+    log.info(
+        "Ambient context: %d calendar events, %d oura days", len(calendar_events), len(oura_scores)
+    )
 
     examples = _build_examples(timeline, cfg, calendar_events, oura_scores)
     log.info("Raw examples: %d", len(examples))
@@ -348,8 +351,7 @@ def build_dataset(
     def _strip(exs: list[dict]) -> list[dict]:
         return [{k: v for k, v in ex.items() if k != "_ts"} for ex in exs]
 
-    for name, data in [("sft_train", _strip(train)),
-                       ("sft_val", _strip(val))]:
+    for name, data in [("sft_train", _strip(train)), ("sft_val", _strip(val))]:
         path = output_dir / f"{name}.jsonl"
         with open(path, "w") as f:
             for ex in data:

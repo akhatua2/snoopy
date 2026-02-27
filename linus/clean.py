@@ -24,6 +24,7 @@ class Action:
     def format(self, show_time: bool = False) -> str:
         if show_time:
             from datetime import datetime
+
             t = datetime.fromtimestamp(self.timestamp).strftime("%H:%M:%S")
             return f"[{t}] [{self.action_type}] {self.text}"
         return f"[{self.action_type}] {self.text}"
@@ -33,18 +34,20 @@ SESSION_BREAK = "SESSION_BREAK"
 
 # ── Noise filters ────────────────────────────────────────────────────────
 
-_SYSTEM_NOISE_APPS = frozenset({
-    "loginwindow",
-    "ScreenSaverEngine",
-    "CoreServicesUIAgent",
-    "universalAccessAuthWarn",
-    "UserNotificationCenter",
-    "SystemUIServer",
-    "Dock",
-    "Finder",
-    "Window Server",
-    "WindowServer",
-})
+_SYSTEM_NOISE_APPS = frozenset(
+    {
+        "loginwindow",
+        "ScreenSaverEngine",
+        "CoreServicesUIAgent",
+        "universalAccessAuthWarn",
+        "UserNotificationCenter",
+        "SystemUIServer",
+        "Dock",
+        "Finder",
+        "Window Server",
+        "WindowServer",
+    }
+)
 
 _BRAILLE_RE = re.compile(r"[⠀-⣿✳⠂⠐⠒]+")
 _SCREENSHOT_RE = re.compile(r"Screenshot \d{4}-\d{2}-\d{2} at \d+\.\d+\.\d+ [AP]M\.png")
@@ -52,47 +55,79 @@ _GENERATED_IMAGE_RE = re.compile(r"Generated Image \w+ \d+, \d{4} - \d+_\d+[AP]M
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b")
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 _TRACKING_PARAMS = {
-    "utm_source", "utm_medium", "utm_campaign", "utm_term",
-    "utm_content", "ref", "fbclid", "gclid", "mc_cid",
-    "mc_eid", "msclkid", "twclid",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "ref",
+    "fbclid",
+    "gclid",
+    "mc_cid",
+    "mc_eid",
+    "msclkid",
+    "twclid",
 }
-_BROWSER_SUFFIXES = re.compile(
-    r"\s*[-–—]\s*(Google Chrome|Mozilla Firefox|Arc|Safari|Brave)$"
-)
+_BROWSER_SUFFIXES = re.compile(r"\s*[-–—]\s*(Google Chrome|Mozilla Firefox|Arc|Safari|Brave)$")
 _NOTIF_COUNT_RE = re.compile(r"^\(\d+\)\s+")
 _TERMINAL_PROMPT_RE = re.compile(
     r"^\([\w-]+\)\s*\([\w-]+\)\s*\S+@\S+\s+\S+\s+%\s*"  # (env) (base) user@host dir %
-    r"|^\([\w-]+\)\s*\S+@\S+\s+\S+\s+%\s*"                # (env) user@host dir %
-    r"|^\S+@\S+\s+\S+\s+%\s*"                              # user@host dir %
+    r"|^\([\w-]+\)\s*\S+@\S+\s+\S+\s+%\s*"  # (env) user@host dir %
+    r"|^\S+@\S+\s+\S+\s+%\s*"  # user@host dir %
 )
 _SKIP_URLS = re.compile(r"^(chrome-extension://|about:|chrome://|arc://)")
 
 # Spam/redirect domains to filter from browse events
-_SPAM_DOMAINS = frozenset({
-    "netoda.tech",
-    "fmovies.to", "fmovies.ps", "fmovies.llc",
-    "fmoviesz.to", "fmovies2.to", "fmovies.co",
-})
+_SPAM_DOMAINS = frozenset(
+    {
+        "netoda.tech",
+        "fmovies.to",
+        "fmovies.ps",
+        "fmovies.llc",
+        "fmoviesz.to",
+        "fmovies2.to",
+        "fmovies.co",
+    }
+)
 
 _FS_SKIP_PATTERNS = (
     # Version control & build artifacts
-    "/.git/", "/node_modules/", "/__pycache__/", ".pyc", ".DS_Store",
-    "/target/",        # Rust build output
-    "/.venv/", "/venv/", "/site-packages/",
+    "/.git/",
+    "/node_modules/",
+    "/__pycache__/",
+    ".pyc",
+    ".DS_Store",
+    "/target/",  # Rust build output
+    "/.venv/",
+    "/venv/",
+    "/site-packages/",
     ".egg-info/",
-    "/.pytest_cache/", "/.ruff_cache/", "/.mypy_cache/",
+    "/.pytest_cache/",
+    "/.ruff_cache/",
+    "/.mypy_cache/",
     # Snoopy's own data
     "/snoopy/data/",
     # Log & trajectory files (background process output)
-    "/logs/", ".traj.json", ".log",
+    "/logs/",
+    ".traj.json",
+    ".log",
     # Lock files & metadata
-    "/uv.lock", "/package-lock.json", "/yarn.lock",
+    "/uv.lock",
+    "/package-lock.json",
+    "/yarn.lock",
     # Temp files
-    "/tmp/", ".tmp", ".temp",
+    "/tmp/",
+    ".tmp",
+    ".temp",
     # Binary/media (not user-editable text)
-    ".rmeta", ".rcgu.o", ".d", ".dylib", ".so",
+    ".rmeta",
+    ".rcgu.o",
+    ".d",
+    ".dylib",
+    ".so",
     # Chrome/browser temp files
-    ".com.google.Chrome.", ".crdownload",
+    ".com.google.Chrome.",
+    ".crdownload",
     # Screenshot temp files
     ".Screenshot ",
 )
@@ -120,7 +155,8 @@ def _build_contact_map() -> dict[str, str]:
         import objc
 
         objc.loadBundle(
-            "Contacts", {},
+            "Contacts",
+            {},
             bundle_path="/System/Library/Frameworks/Contacts.framework",
         )
         CNContactStore = objc.lookUpClass("CNContactStore")
@@ -132,9 +168,7 @@ def _build_contact_map() -> dict[str, str]:
         if not container_id:
             return {}
         pred = CNContact.predicateForContactsInContainerWithIdentifier_(container_id)
-        contacts = store.unifiedContactsMatchingPredicate_keysToFetch_error_(
-            pred, keys, None
-        )
+        contacts = store.unifiedContactsMatchingPredicate_keysToFetch_error_(pred, keys, None)
         if not contacts or not isinstance(contacts, (list, tuple)):
             return {}
 
@@ -172,6 +206,7 @@ def _resolve_contact(phone: str) -> str:
     if not name and phone.startswith("+"):
         name = _CONTACT_MAP.get(phone[1:])
     return name or phone
+
 
 # ── Path normalization ───────────────────────────────────────────────────
 
@@ -231,9 +266,7 @@ def _clean_command(cmd: str) -> str:
 # ── Per-table cleaners ───────────────────────────────────────────────────
 
 
-def _clean_window_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_window_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, app_name, window_title, duration_s "
         "FROM window_events WHERE timestamp >= ? AND timestamp < ? "
@@ -272,9 +305,7 @@ def _clean_window_events(
     return actions
 
 
-def _clean_browser_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_browser_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, url, title FROM browser_events "
         "WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp",
@@ -302,9 +333,7 @@ def _clean_browser_events(
     return actions
 
 
-def _clean_shell_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_shell_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, command FROM shell_events "
         "WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp",
@@ -321,9 +350,7 @@ def _clean_shell_events(
     return actions
 
 
-def _clean_claude_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_claude_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, message_type, content_preview "
         "FROM claude_events WHERE timestamp >= ? AND timestamp < ? "
@@ -376,9 +403,7 @@ def _clean_claude_events(
     return actions
 
 
-def _clean_message_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_message_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, contact, is_from_me, content_preview, service, chat_name "
         "FROM message_events WHERE timestamp >= ? AND timestamp < ? "
@@ -425,9 +450,7 @@ def _clean_notification_events(
     return actions
 
 
-def _clean_clipboard_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_clipboard_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, content_text, source_app "
         "FROM clipboard_events WHERE timestamp >= ? AND timestamp < ? "
@@ -460,9 +483,7 @@ def _clean_clipboard_events(
     return actions
 
 
-def _clean_app_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_app_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, event_type, app_name "
         "FROM app_events WHERE timestamp >= ? AND timestamp < ? "
@@ -476,10 +497,18 @@ def _clean_app_events(
             continue
         if app in _SYSTEM_NOISE_APPS or app in config.APP_EXCLUDED:
             continue
-        if any(x in app.lower() for x in (
-            "helper", "agent", "daemon", "extension",
-            "screencaptureui", "textinputswitcher", "inputmethod",
-        )):
+        if any(
+            x in app.lower()
+            for x in (
+                "helper",
+                "agent",
+                "daemon",
+                "extension",
+                "screencaptureui",
+                "textinputswitcher",
+                "inputmethod",
+            )
+        ):
             continue
         action_type = "launch" if etype == "launch" else "quit"
         actions.append(Action(ts, action_type, app))
@@ -487,9 +516,7 @@ def _clean_app_events(
     return actions
 
 
-def _clean_system_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_system_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, event_type FROM system_events "
         "WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp",
@@ -504,9 +531,7 @@ def _clean_system_events(
     return actions
 
 
-def _clean_file_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_file_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, event_type, file_path "
         "FROM file_events WHERE timestamp >= ? AND timestamp < ? "
@@ -545,9 +570,7 @@ def _clean_file_events(
     return actions
 
 
-def _clean_mail_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_mail_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, sender, subject, is_from_me "
         "FROM mail_events WHERE timestamp >= ? AND timestamp < ? "
@@ -570,9 +593,7 @@ def _clean_mail_events(
     return actions
 
 
-def _clean_audio_events(
-    conn: sqlite3.Connection, since: float, until: float
-) -> list[Action]:
+def _clean_audio_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, device_type, is_active "
         "FROM audio_events WHERE timestamp >= ? AND timestamp < ? "
@@ -715,10 +736,18 @@ def _dedup_mail(actions: list[Action]) -> list[Action]:
     return result
 
 
-_BROWSER_APPS = frozenset({
-    "Google Chrome", "Chrome", "Arc", "Safari", "Firefox",
-    "Brave Browser", "Microsoft Edge", "Orion",
-})
+_BROWSER_APPS = frozenset(
+    {
+        "Google Chrome",
+        "Chrome",
+        "Arc",
+        "Safari",
+        "Firefox",
+        "Brave Browser",
+        "Microsoft Edge",
+        "Orion",
+    }
+)
 
 
 def _is_browser_focus(action: Action) -> bool:
@@ -771,11 +800,7 @@ def _fix_leaked_titles(actions: list[Action]) -> list[Action]:
         if title:
             # 1) Generic: title matches a DIFFERENT app's recent title
             for other_app, (other_title, other_ts) in recent.items():
-                if (
-                    other_app != app
-                    and other_title == title
-                    and (a.timestamp - other_ts) < 15.0
-                ):
+                if other_app != app and other_title == title and (a.timestamp - other_ts) < 15.0:
                     strip = True
                     break
 
