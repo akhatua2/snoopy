@@ -11,6 +11,7 @@ A per-browser watermark (last_visit_id) avoids re-importing old visits.
 
 import logging
 import os
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -22,6 +23,9 @@ from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
 
 log = logging.getLogger(__name__)
+
+# Strip leading notification count prefix from browser titles: "(1) " → ""
+_NOTIF_COUNT_RE = re.compile(r"^\(\d+\)\s+")
 
 # Chrome epoch offset: microseconds between 1601-01-01 and 1970-01-01
 _CHROME_EPOCH_OFFSET = 11644473600 * 1_000_000
@@ -82,6 +86,9 @@ class BrowserCollector(BaseCollector):
                 visit_id, url, title, visit_time, duration = row
                 ts = (visit_time - _CHROME_EPOCH_OFFSET) / 1_000_000
                 dur_s = duration / 1_000_000 if duration else 0
+                # Strip notification count prefix: "(3) Gmail" → "Gmail"
+                if title:
+                    title = _NOTIF_COUNT_RE.sub("", title)
                 events.append(Event(
                     table="browser_events",
                     columns=["timestamp", "url", "title", "browser", "visit_duration_s"],

@@ -310,7 +310,13 @@ fn parse_transcript_impl(
             "user" => {
                 let msg = &entry["message"];
                 let content = extract_content(msg);
-                if content.trim().is_empty() {
+                let trimmed_content = content.trim();
+                if trimmed_content.is_empty() {
+                    continue;
+                }
+                // Skip system-generated messages (not actual user input)
+                if trimmed_content.starts_with("<task-notification") ||
+                   trimmed_content.starts_with("This session is being continued") {
                     continue;
                 }
                 events.push(TranscriptEvent {

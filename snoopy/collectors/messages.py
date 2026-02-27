@@ -29,6 +29,64 @@ _APPLE_EPOCH_OFFSET = 978307200  # seconds between 2001-01-01 and 1970-01-01
 _CONTENT_PREVIEW_LEN = 200
 
 
+def _build_contact_map() -> dict[str, str]:
+    """Resolve phone numbers → contact names via macOS Contacts framework.
+
+    Returns {"+16505551234": "John Doe", ...} or empty dict if unavailable.
+    """
+    try:
+        import objc
+
+        objc.loadBundle(
+            "Contacts", {},
+            bundle_path="/System/Library/Frameworks/Contacts.framework",
+        )
+        CNContactStore = objc.lookUpClass("CNContactStore")
+        CNContact = objc.lookUpClass("CNContact")
+
+        store = CNContactStore.alloc().init()
+        keys = ["givenName", "familyName", "phoneNumbers"]
+        container_id = store.defaultContainerIdentifier()
+        if not container_id:
+            return {}
+        pred = CNContact.predicateForContactsInContainerWithIdentifier_(container_id)
+        contacts = store.unifiedContactsMatchingPredicate_keysToFetch_error_(
+            pred, keys, None,
+        )
+        if not contacts or not isinstance(contacts, (list, tuple)):
+            return {}
+
+        mapping: dict[str, str] = {}
+        for contact in contacts:
+            given = contact.givenName() or ""
+            family = contact.familyName() or ""
+            name = f"{given} {family}".strip()
+            if not name:
+                continue
+            for labeled in contact.phoneNumbers():
+                number = labeled.value().stringValue()
+                digits = "".join(c for c in number if c.isdigit() or c == "+")
+                if digits:
+                    mapping[digits] = name
+        log.info("resolved %d phone→name mappings from Contacts", len(mapping))
+        return mapping
+    except Exception:
+        log.debug("Contacts framework unavailable — using raw phone numbers")
+        return {}
+
+
+def _resolve_phone(phone: str, contacts: dict[str, str]) -> str:
+    """Look up a phone number in the contact map, trying common variants."""
+    if not contacts or not phone or not phone.startswith("+"):
+        return phone
+    name = contacts.get(phone)
+    if not name and phone.startswith("+1"):
+        name = contacts.get(phone[2:])  # try without +1
+    if not name and phone.startswith("+"):
+        name = contacts.get(phone[1:])  # try without +
+    return name or phone
+
+
 class MessagesCollector(BaseCollector):
     name = "messages"
     interval = config.MESSAGES_INTERVAL
@@ -39,6 +97,7 @@ class MessagesCollector(BaseCollector):
         if saved is not None:
             self._last_id = int(saved)
         self._permission_warned = False
+        self._contacts: dict[str, str] = _build_contact_map()
 
     def collect(self) -> None:
         if not _MESSAGES_DB.exists():
@@ -107,6 +166,7 @@ class MessagesCollector(BaseCollector):
                     content = "[attachment]"
 
                 contact = handle_id or dest_caller or ""
+                contact = _resolve_phone(contact, self._contacts)
                 events.append(Event(
                     table="message_events",
                     columns=["timestamp", "contact", "is_from_me", "content_preview",

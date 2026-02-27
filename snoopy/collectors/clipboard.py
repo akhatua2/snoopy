@@ -6,6 +6,7 @@ Caps captured text at CLIPBOARD_MAX_LENGTH.
 """
 
 import logging
+import re
 import time
 
 from AppKit import NSPasteboard, NSStringPboardType, NSWorkspace
@@ -15,6 +16,15 @@ from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
 
 log = logging.getLogger(__name__)
+
+# URLs containing auth tokens, secrets, or login credentials
+_SENSITIVE_URL_RE = re.compile(
+    r"https?://\S*(?:token=|api_key=|secret=|password=|login/one-time)", re.IGNORECASE
+)
+# Standalone tokens/secrets (GitHub PATs, API keys, Slack tokens, etc.)
+_SENSITIVE_TOKEN_RE = re.compile(
+    r"^(?:ghp_|gho_|github_pat_|sk-[a-zA-Z0-9]{20}|xox[bpas]-|AKIA[0-9A-Z]{16})"
+)
 
 
 class ClipboardCollector(BaseCollector):
@@ -39,6 +49,11 @@ class ClipboardCollector(BaseCollector):
 
         text = self._pasteboard.stringForType_(NSStringPboardType)
         if not text:
+            return
+
+        # Skip clipboard content containing auth tokens or secrets
+        if _SENSITIVE_URL_RE.search(text) or _SENSITIVE_TOKEN_RE.match(text.strip()):
+            log.debug("skipping clipboard with sensitive content")
             return
 
         # Truncate to max length
