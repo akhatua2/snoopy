@@ -1,4 +1,4 @@
-name: CI
+name: snoopy
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 jobs:
   lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,6 +16,7 @@ jobs:
       - run: uv tool run ty check snoopy/
 
   test:
+    name: test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
