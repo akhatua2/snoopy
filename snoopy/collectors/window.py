@@ -108,10 +108,15 @@ class WindowCollector(BaseCollector):
 
         app_name = active.get("NSApplicationName", "")
         bundle_id = active.get("NSApplicationBundleIdentifier", "")
-        title, bounds = self._get_frontmost_window_info()
+        pid = active.get("NSApplicationProcessIdentifier", 0)
+        title, bounds = self._get_frontmost_window_info(pid)
 
         if not title and bundle_id in _CHROMIUM_BUNDLE_IDS:
             title = _get_chromium_tab_title(bundle_id)
+
+        # Strip browser audio indicator (🔊) from titles
+        if title and "🔊" in title:
+            title = title.replace("🔊", "").strip()
 
         # Deduplicate: skip if same app + title
         if app_name == self._last_app and title == self._last_title:
@@ -150,8 +155,13 @@ class WindowCollector(BaseCollector):
         self._last_ts = now
 
     @staticmethod
-    def _get_frontmost_window_info() -> tuple[str, dict]:
-        """Get the title and bounds of the frontmost window."""
+    def _get_frontmost_window_info(app_pid: int = 0) -> tuple[str, dict]:
+        """Get the title and bounds of the frontmost window.
+
+        If app_pid is given, only consider windows owned by that process.
+        This prevents reading a stale title from the previously-focused app
+        right after Cmd+Tab.
+        """
         windows = Quartz.CGWindowListCopyWindowInfo(
             Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
             Quartz.kCGNullWindowID,
@@ -160,6 +170,8 @@ class WindowCollector(BaseCollector):
             return ("", {})
         for win in windows:
             if win.get(Quartz.kCGWindowLayer, -1) == 0:
+                if app_pid and win.get(Quartz.kCGWindowOwnerPID, 0) != app_pid:
+                    continue
                 title = win.get(Quartz.kCGWindowName, "") or ""
                 bounds = win.get(Quartz.kCGWindowBounds, {})
                 return (title, dict(bounds) if bounds else {})

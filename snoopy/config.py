@@ -99,6 +99,14 @@ FS_EXCLUDED_PATTERNS = (
     "/.git/modules/",
     "/__pycache__/",
     "/.DS_Store",
+    # Build artifacts
+    "/target/",          # Rust
+    "/node_modules/",
+    "/.venv/", "/venv/", "/site-packages/",
+    # Temp / download files
+    ".crdownload", ".com.google.Chrome.", ".tmp", ".temp",
+    # Log output
+    "/logs/", ".traj.json",
 )
 
 # ── Claude logs ────────────────────────────────────────────────────────
