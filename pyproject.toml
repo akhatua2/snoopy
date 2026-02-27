@@ -34,6 +34,11 @@ dev = [
     "ruff",
     "ty",
 ]
+train = [
+    "mlx>=0.22",
+    "mlx-lm>=0.28",
+    "wandb",
+]
 
 [tool.ruff]
 target-version = "py311"

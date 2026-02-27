@@ -1,8 +1,10 @@
 """snoopy menu bar — floating panel with animated pixel-art sprite."""
 
+import os
 import signal
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 import AppKit
@@ -12,7 +14,7 @@ from PyObjCTools import AppHelper
 
 _PLIST_LABEL = "com.snoopy.daemon"
 _PLIST_DST = Path.home() / "Library/LaunchAgents" / f"{_PLIST_LABEL}.plist"
-_W, _H = 220, 130
+_W, _H = 220, 210
 _RADIUS = 14.0
 _PX = 4  # each logical pixel = 4x4 points in the panel
 
@@ -20,6 +22,17 @@ _PX = 4  # each logical pixel = 4x4 points in the panel
 _BLACK = AppKit.NSColor.blackColor()
 _CREAM = AppKit.NSColor.colorWithRed_green_blue_alpha_(0.97, 0.98, 0.91, 1.0)
 _COLORS = {1: _BLACK, 2: _CREAM}
+
+
+def _rainbow_colors(tick, n_rows):
+    """Build per-row rainbow color list for the cream fill."""
+    colors = []
+    for row in range(n_rows):
+        hue = (tick * 0.08 + row * 0.08) % 1.0
+        colors.append(
+            AppKit.NSColor.colorWithHue_saturation_brightness_alpha_(
+                hue, 0.7, 1.0, 1.0))
+    return colors
 
 
 # ── Sprite data (22x12, 0=transparent 1=black 2=cream) ──────────────────
@@ -110,6 +123,7 @@ class _SpriteView(AppKit.NSView):
     """Draws a pixel grid with crisp nearest-neighbor style."""
 
     _grid = None
+    _row_colors = None
     _px = _PX
 
     def isFlipped(self):
@@ -118,6 +132,9 @@ class _SpriteView(AppKit.NSView):
     def setGrid_(self, grid):
         self._grid = grid
         self.setNeedsDisplay_(True)
+
+    def setRowColors_(self, row_colors):
+        self._row_colors = row_colors
 
     def drawRect_(self, dirty):
         if not self._grid:
@@ -128,13 +145,16 @@ class _SpriteView(AppKit.NSView):
         px = self._px
         for y, row in enumerate(self._grid):
             for x, cell in enumerate(row):
-                c = _COLORS.get(cell)
+                if cell == 2 and self._row_colors:
+                    c = self._row_colors[y]
+                else:
+                    c = _COLORS.get(cell)
                 if c:
                     c.set()
                     AppKit.NSRectFill(((x * px, y * px), (px, px)))
 
 
-def _grid_to_image(grid, px=3):
+def _grid_to_image(grid, px=3, row_colors=None):
     """Render a pixel grid to an NSImage (bottom-up coords)."""
     rows, cols = len(grid), len(grid[0])
     w, h = cols * px, rows * px
@@ -146,7 +166,10 @@ def _grid_to_image(grid, px=3):
     for gy, row in enumerate(grid):
         fy = (rows - 1 - gy) * px
         for gx, cell in enumerate(row):
-            c = _COLORS.get(cell)
+            if cell == 2 and row_colors:
+                c = row_colors[gy]
+            else:
+                c = _COLORS.get(cell)
             if c:
                 c.set()
                 AppKit.NSRectFill(((gx * px, fy), (px, px)))
@@ -239,6 +262,7 @@ class StatusBarController(NSObject):
         self._build_ui()
         self._tick = 0
         self._running = _is_running()
+        self._training_active = False
 
         # Dismiss on focus loss
         NSNotificationCenter.defaultCenter() \
@@ -257,6 +281,11 @@ class StatusBarController(NSObject):
 
         self._update_buttons()
         self._animate()
+
+        # Start training schedule (12h interval) — delayed to avoid import fork
+        NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+            2.0, self, "startTrainingSchedule:", None, False)
+
         return self
 
     def _build_ui(self):
@@ -288,12 +317,58 @@ class StatusBarController(NSObject):
         q.setTarget_(self)
         q.setAction_("onQuit:")
         v.addSubview_(q)
+        y -= 30
+
+        # ── Training section ────────────────────────────────────────
+        y -= 12
+
+        # Separator line
+        sep = AppKit.NSBox.alloc().initWithFrame_(((16, y - 1), (_W - 32, 1)))
+        sep.setBoxType_(AppKit.NSBoxSeparator)
+        v.addSubview_(sep)
+        y -= 5
+
+        # "Training" label
+        y -= 14
+        lbl = AppKit.NSTextField.labelWithString_("Training")
+        lbl.setFrame_((((_W - 80) / 2, y), (80, 14)))
+        lbl.setAlignment_(AppKit.NSTextAlignmentCenter)
+        lbl.setFont_(AppKit.NSFont.systemFontOfSize_weight_(10, 0.5))
+        lbl.setTextColor_(AppKit.NSColor.secondaryLabelColor())
+        v.addSubview_(lbl)
+
+        # Status text (monospace, small)
+        y -= 18
+        self._train_status = AppKit.NSTextField.labelWithString_("--")
+        self._train_status.setFrame_(((10, y), (_W - 20, 14)))
+        self._train_status.setAlignment_(AppKit.NSTextAlignmentCenter)
+        self._train_status.setFont_(AppKit.NSFont.monospacedSystemFontOfSize_weight_(9, 0.0))
+        self._train_status.setTextColor_(AppKit.NSColor.secondaryLabelColor())
+        v.addSubview_(self._train_status)
+
+        # "Train Now" button
+        y -= 34
+        tw = 100
+        self._train_btn = _btn("Train Now", (_W - tw) / 2, y, tw,
+                                color=AppKit.NSColor.systemBlueColor())
+        self._train_btn.setTarget_(self)
+        self._train_btn.setAction_("onTrainNow:")
+        v.addSubview_(self._train_btn)
 
     @staticmethod
-    def _make_icon(grid):
-        img = _grid_to_image(grid, px=3)
+    def _make_icon(grid, row_colors=None):
+        img = _grid_to_image(grid, px=3, row_colors=row_colors)
         img.setSize_((33, 18))
         return img
+
+    @objc.typedSelector(b'v@:@')
+    def startTrainingSchedule_(self, _timer):
+        threading.Thread(target=self._start_training_schedule_bg, daemon=True).start()
+
+    @staticmethod
+    def _start_training_schedule_bg():
+        from linus.sync import start_schedule
+        start_schedule()
 
     def _animate(self):
         self._tick += 1
@@ -319,9 +394,11 @@ class StatusBarController(NSObject):
                    else 'both')
             grid = _compose_frame(tail=tail, look=look, eyes=eyes, ear=ear)
 
-        self._item.button().setImage_(self._make_icon(grid))
+        row_colors = _rainbow_colors(self._tick, 12) if self._training_active else None
+        self._item.button().setImage_(self._make_icon(grid, row_colors))
 
         if self._panel.isVisible():
+            self._sprite.setRowColors_(row_colors)
             self._sprite.setGrid_(grid)
 
     def _update_buttons(self):
@@ -337,6 +414,7 @@ class StatusBarController(NSObject):
     def _show(self):
         self._running = _is_running()
         self._update_buttons()
+        self._update_training_ui()
         self._animate()
         btn_rect = self._item.button().window().frame()
         mid_x = btn_rect.origin.x + btn_rect.size.width / 2
@@ -368,6 +446,7 @@ class StatusBarController(NSObject):
         self._running = _is_running()
         if self._panel.isVisible():
             self._update_buttons()
+            self._update_training_ui()
 
     @objc.typedSelector(b'v@:@')
     def onToggleDaemon_(self, _sender):
@@ -386,14 +465,98 @@ class StatusBarController(NSObject):
                            capture_output=True)
 
     @objc.typedSelector(b'v@:@')
+    def onTrainNow_(self, _sender):
+        from linus.sync import trigger_train
+        started = trigger_train()
+        if started:
+            self._train_btn.setEnabled_(False)
+            self._train_btn.setTitle_("Training...")
+            self._train_status.setStringValue_("Starting...")
+        # If already running, button is already disabled
+
+    def _update_training_ui(self):
+        from linus.sync import STATE_PATH, is_training
+
+        training = is_training()
+        self._training_active = training
+        self._train_btn.setEnabled_(not training)
+        if training:
+            self._train_btn.setTitle_("Training...")
+        else:
+            self._train_btn.setTitle_("Train Now")
+
+        if not STATE_PATH.exists():
+            self._train_status.setStringValue_("No training yet")
+            return
+
+        try:
+            state = __import__("json").loads(STATE_PATH.read_text())
+        except (ValueError, OSError):
+            return
+
+        status = state.get("status", "idle")
+        if status != "idle":
+            self._train_status.setStringValue_(status.replace("_", " ").title() + "...")
+            return
+
+        parts = []
+        v = state.get("adapter_version", 0)
+        if v:
+            parts.append(f"v{v}")
+        eval_metrics = state.get("last_eval_metrics")
+        if eval_metrics and "score" in eval_metrics:
+            parts.append(f"Score: {eval_metrics['score']:.0%}")
+        ts = state.get("last_train_complete_ts")
+        if ts:
+            parts.append(self._format_ago(ts))
+
+        err = state.get("last_error")
+        if parts:
+            self._train_status.setStringValue_(" | ".join(parts))
+        elif err == "eval_below_threshold":
+            self._train_status.setStringValue_("Score too low, retrying...")
+        elif err:
+            self._train_status.setStringValue_(err.replace("_", " ").title())
+        else:
+            self._train_status.setStringValue_("No training yet")
+
+    @staticmethod
+    def _format_ago(ts):
+        delta = time.time() - ts
+        if delta < 60:
+            return "just now"
+        if delta < 3600:
+            return f"{int(delta / 60)}m ago"
+        if delta < 86400:
+            return f"{int(delta / 3600)}h ago"
+        return f"{int(delta / 86400)}d ago"
+
+    @objc.typedSelector(b'v@:@')
     def onQuit_(self, _sender):
+        from linus.sync import stop_schedule
+        stop_schedule()
         AppKit.NSApplication.sharedApplication().terminate_(None)
 
 
 _keep_alive = []
 
 
+_PIDFILE = Path(__file__).resolve().parent.parent / "data" / "menubar.pid"
+
+
 def main():
+    # Single-instance guard
+    _PIDFILE.parent.mkdir(parents=True, exist_ok=True)
+    if _PIDFILE.exists():
+        old_pid = int(_PIDFILE.read_text().strip())
+        try:
+            os.kill(old_pid, 0)  # check if alive
+            os.kill(old_pid, 9)  # kill it
+            import time; time.sleep(0.5)
+        except (ProcessLookupError, ValueError):
+            pass
+    _PIDFILE.write_text(str(os.getpid()))
+
     app = AppKit.NSApplication.sharedApplication()
     app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyAccessory)
     ctrl = StatusBarController.alloc().init()
