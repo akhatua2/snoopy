@@ -15,7 +15,6 @@ Each assistant message's content is a list of blocks:
 
 import json
 import logging
-import time
 from pathlib import Path
 
 import snoopy.config as config

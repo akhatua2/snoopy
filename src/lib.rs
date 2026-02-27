@@ -12,41 +12,39 @@ use regex::Regex;
 ///
 /// Scans for b"NSString" marker, then b"\x01+", reads length byte, slices UTF-8 text.
 #[pyfunction]
-fn extract_attributed_body_text(py: Python<'_>, blob: &[u8]) -> PyResult<String> {
-    Ok(py.allow_threads(|| {
-        if blob.is_empty() {
-            return String::new();
-        }
+fn extract_attributed_body_text(blob: &[u8]) -> String {
+    if blob.is_empty() {
+        return String::new();
+    }
 
-        let ns_string = b"NSString";
-        let finder = memmem::Finder::new(ns_string);
-        let idx = match finder.find(blob) {
-            Some(i) => i,
-            None => return String::new(),
-        };
+    let ns_string = b"NSString";
+    let finder = memmem::Finder::new(ns_string);
+    let idx = match finder.find(blob) {
+        Some(i) => i,
+        None => return String::new(),
+    };
 
-        let search_start = idx + ns_string.len();
-        let marker = b"\x01+";
-        let marker_finder = memmem::Finder::new(marker);
-        let plus_idx = match marker_finder.find(&blob[search_start..]) {
-            Some(i) => search_start + i,
-            None => return String::new(),
-        };
+    let search_start = idx + ns_string.len();
+    let marker = b"\x01+";
+    let marker_finder = memmem::Finder::new(marker);
+    let plus_idx = match marker_finder.find(&blob[search_start..]) {
+        Some(i) => search_start + i,
+        None => return String::new(),
+    };
 
-        let length_offset = plus_idx + 2;
-        if length_offset >= blob.len() {
-            return String::new();
-        }
+    let length_offset = plus_idx + 2;
+    if length_offset >= blob.len() {
+        return String::new();
+    }
 
-        let text_len = blob[length_offset] as usize;
-        let text_start = length_offset + 1;
-        let text_end = text_start + text_len;
-        if text_end > blob.len() {
-            return String::from_utf8_lossy(&blob[text_start..]).into_owned();
-        }
+    let text_len = blob[length_offset] as usize;
+    let text_start = length_offset + 1;
+    let text_end = text_start + text_len;
+    if text_end > blob.len() {
+        return String::from_utf8_lossy(&blob[text_start..]).into_owned();
+    }
 
-        String::from_utf8_lossy(&blob[text_start..text_end]).into_owned()
-    }))
+    String::from_utf8_lossy(&blob[text_start..text_end]).into_owned()
 }
 
 fn lsof_regex() -> &'static Regex {
@@ -63,21 +61,18 @@ fn lsof_regex() -> &'static Regex {
 fn parse_lsof_output<'py>(py: Python<'py>, output: &str) -> PyResult<Bound<'py, PySet>> {
     let re = lsof_regex();
 
-    let results: Vec<(String, String, u16)> = py.allow_threads(|| {
-        let mut set = HashSet::new();
-        for line in output.lines() {
-            if let Some(caps) = re.captures(line) {
-                let process = caps[1].to_string();
-                let ip = caps[2].to_string();
-                let port: u16 = caps[3].parse().unwrap_or(0);
-                set.insert((process, ip, port));
-            }
+    let mut set = HashSet::new();
+    for line in output.lines() {
+        if let Some(caps) = re.captures(line) {
+            let process = caps[1].to_string();
+            let ip = caps[2].to_string();
+            let port: u16 = caps[3].parse().unwrap_or(0);
+            set.insert((process, ip, port));
         }
-        set.into_iter().collect()
-    });
+    }
 
     let pyset = PySet::empty(py)?;
-    for (process, ip, port) in results {
+    for (process, ip, port) in set {
         let tuple = PyTuple::new(py, [
             process.into_pyobject(py)?.into_any(),
             ip.into_pyobject(py)?.into_any(),
@@ -88,7 +83,6 @@ fn parse_lsof_output<'py>(py: Python<'py>, output: &str) -> PyResult<Bound<'py, 
     Ok(pyset)
 }
 
-/// Extract text content from a user or assistant message dict.
 fn extract_content(msg: &serde_json::Value) -> String {
     let content = &msg["content"];
     if let Some(s) = content.as_str() {
@@ -110,7 +104,6 @@ fn extract_content(msg: &serde_json::Value) -> String {
     String::new()
 }
 
-/// Build a readable preview of a tool call input.
 fn tool_input_preview(tool_name: &str, tool_input: &serde_json::Value) -> String {
     match tool_name {
         "Bash" => tool_input
@@ -164,14 +157,8 @@ fn tool_input_preview(tool_name: &str, tool_input: &serde_json::Value) -> String
     }
 }
 
-/// Parse ISO 8601 timestamp to epoch float. Returns None on failure.
 fn parse_iso_ts(ts_str: &str) -> Option<f64> {
-    // Handle "2026-02-25T08:16:18.720Z" or "2026-02-25T08:16:18.720+00:00"
     let s = ts_str.replace('Z', "+00:00");
-
-    // Try parsing with chrono-like manual approach
-    // Format: YYYY-MM-DDTHH:MM:SS.fff+HH:MM
-    // We'll use a simpler approach: split at 'T', parse date and time parts
 
     let (date_part, rest) = s.split_once('T')?;
     let date_parts: Vec<&str> = date_part.split('-').collect();
@@ -182,7 +169,6 @@ fn parse_iso_ts(ts_str: &str) -> Option<f64> {
     let month: i64 = date_parts[1].parse().ok()?;
     let day: i64 = date_parts[2].parse().ok()?;
 
-    // Split time from timezone offset
     let (time_str, tz_offset_secs) = if let Some(idx) = rest.rfind('+') {
         if idx > 0 {
             let tz_str = &rest[idx + 1..];
@@ -194,8 +180,6 @@ fn parse_iso_ts(ts_str: &str) -> Option<f64> {
             (rest, 0i64)
         }
     } else if let Some(idx) = rest.rfind('-') {
-        // Check if this is a timezone offset (not part of date)
-        // The '-' for timezone should be after the time portion
         if idx > 6 {
             let tz_str = &rest[idx + 1..];
             let tz_parts: Vec<&str> = tz_str.split(':').collect();
@@ -226,16 +210,12 @@ fn parse_iso_ts(ts_str: &str) -> Option<f64> {
         0.0
     };
 
-    // Convert to Unix timestamp using a simplified algorithm
-    // Days from epoch to date
     let days = days_from_epoch(year, month, day)?;
     let epoch_secs = days * 86400 + hour * 3600 + minute * 60 + sec;
     Some(epoch_secs as f64 + frac - tz_offset_secs as f64)
 }
 
-/// Calculate days from Unix epoch (1970-01-01) to the given date.
 fn days_from_epoch(year: i64, month: i64, day: i64) -> Option<i64> {
-    // Adjust for months before March
     let (y, m) = if month <= 2 {
         (year - 1, month + 9)
     } else {
@@ -249,12 +229,10 @@ fn days_from_epoch(year: i64, month: i64, day: i64) -> Option<i64> {
     Some(days)
 }
 
-/// Truncate a string to at most `max_len` characters.
 fn truncate_str(s: &str, max_len: usize) -> &str {
     if s.len() <= max_len {
         s
     } else {
-        // Find a valid char boundary
         let mut end = max_len;
         while end > 0 && !s.is_char_boundary(end) {
             end -= 1;
@@ -263,13 +241,169 @@ fn truncate_str(s: &str, max_len: usize) -> &str {
     }
 }
 
-/// Parsed event from a transcript line.
 struct TranscriptEvent {
     timestamp: f64,
     session_id: String,
     message_type: String,
     content_preview: String,
     project_path: String,
+}
+
+fn parse_transcript_impl(
+    path: &str,
+    since_offset: u64,
+    preview_len: usize,
+) -> Result<(Vec<TranscriptEvent>, u64), String> {
+    let file_path = std::path::Path::new(path);
+    let session_id = file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+    let project_path = file_path
+        .parent()
+        .and_then(|p| p.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let file = File::open(path).map_err(|e| e.to_string())?;
+    let mut reader = BufReader::new(file);
+    reader
+        .seek(SeekFrom::Start(since_offset))
+        .map_err(|e| e.to_string())?;
+
+    let mut events = Vec::new();
+    let mut line_buf = String::new();
+
+    loop {
+        line_buf.clear();
+        let bytes_read = reader.read_line(&mut line_buf).map_err(|e| e.to_string())?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        let trimmed = line_buf.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let entry: serde_json::Value = match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let event_type = entry
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let ts_str = entry
+            .get("timestamp")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let ts = if !ts_str.is_empty() {
+            parse_iso_ts(ts_str).unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        match event_type {
+            "user" => {
+                let msg = &entry["message"];
+                let content = extract_content(msg);
+                if content.trim().is_empty() {
+                    continue;
+                }
+                events.push(TranscriptEvent {
+                    timestamp: ts,
+                    session_id: session_id.clone(),
+                    message_type: "user".to_string(),
+                    content_preview: truncate_str(&content, preview_len).to_string(),
+                    project_path: project_path.clone(),
+                });
+            }
+            "assistant" => {
+                let msg = &entry["message"];
+                let content_blocks = match msg.get("content").and_then(|v| v.as_array()) {
+                    Some(arr) => arr,
+                    None => continue,
+                };
+
+                for block in content_blocks {
+                    let block_type = block
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+
+                    match block_type {
+                        "text" => {
+                            let text = block
+                                .get("text")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            events.push(TranscriptEvent {
+                                timestamp: ts,
+                                session_id: session_id.clone(),
+                                message_type: "assistant_text".to_string(),
+                                content_preview: truncate_str(text, preview_len).to_string(),
+                                project_path: project_path.clone(),
+                            });
+                        }
+                        "tool_use" => {
+                            let tool_name = block
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            let empty_obj = serde_json::Value::Object(serde_json::Map::new());
+                            let tool_input = block
+                                .get("input")
+                                .unwrap_or(&empty_obj);
+                            let preview = tool_input_preview(tool_name, tool_input);
+                            events.push(TranscriptEvent {
+                                timestamp: ts,
+                                session_id: session_id.clone(),
+                                message_type: format!("tool_use:{tool_name}"),
+                                content_preview: truncate_str(&preview, preview_len)
+                                    .to_string(),
+                                project_path: project_path.clone(),
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            "progress" => {
+                let data = &entry["data"];
+                let subtype = data
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if subtype == "tool_result" {
+                    let tool_name = data
+                        .get("tool_name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let output_str = match data.get("output") {
+                        Some(v) => match v.as_str() {
+                            Some(s) => s.to_string(),
+                            None => v.to_string(),
+                        },
+                        None => String::new(),
+                    };
+                    events.push(TranscriptEvent {
+                        timestamp: ts,
+                        session_id: session_id.clone(),
+                        message_type: format!("tool_result:{tool_name}"),
+                        content_preview: truncate_str(&output_str, preview_len).to_string(),
+                        project_path: project_path.clone(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let final_offset = reader.stream_position().map_err(|e| e.to_string())?;
+    Ok((events, final_offset))
 }
 
 /// Parse a JSONL transcript file into structured events.
@@ -283,162 +417,9 @@ fn parse_transcript<'py>(
     since_offset: u64,
     preview_len: usize,
 ) -> PyResult<(Bound<'py, PyList>, u64)> {
-    // Derive session_id and project_path from the path
-    let file_path = std::path::Path::new(path);
-    let session_id = file_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_string();
-    let project_path = file_path
-        .parent()
-        .and_then(|p| p.to_str())
-        .unwrap_or("")
-        .to_string();
+    let (events, final_offset) = parse_transcript_impl(path, since_offset, preview_len)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(e))?;
 
-    let (events, final_offset) = py.allow_threads(|| -> Result<(Vec<TranscriptEvent>, u64), String> {
-        let file = File::open(path).map_err(|e| e.to_string())?;
-        let mut reader = BufReader::new(file);
-        reader
-            .seek(SeekFrom::Start(since_offset))
-            .map_err(|e| e.to_string())?;
-
-        let mut events = Vec::new();
-        let mut line_buf = String::new();
-
-        loop {
-            line_buf.clear();
-            let bytes_read = reader.read_line(&mut line_buf).map_err(|e| e.to_string())?;
-            if bytes_read == 0 {
-                break;
-            }
-
-            let trimmed = line_buf.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            let entry: serde_json::Value = match serde_json::from_str(trimmed) {
-                Ok(v) => v,
-                Err(_) => continue,
-            };
-
-            let event_type = entry
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let ts_str = entry
-                .get("timestamp")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let ts = if !ts_str.is_empty() {
-                parse_iso_ts(ts_str).unwrap_or(0.0)
-            } else {
-                0.0 // Will be replaced with time.time() on the Python side if needed
-            };
-
-            match event_type {
-                "user" => {
-                    let msg = &entry["message"];
-                    let content = extract_content(msg);
-                    if content.trim().is_empty() {
-                        continue;
-                    }
-                    events.push(TranscriptEvent {
-                        timestamp: ts,
-                        session_id: session_id.clone(),
-                        message_type: "user".to_string(),
-                        content_preview: truncate_str(&content, preview_len).to_string(),
-                        project_path: project_path.clone(),
-                    });
-                }
-                "assistant" => {
-                    let msg = &entry["message"];
-                    let content_blocks = match msg.get("content").and_then(|v| v.as_array()) {
-                        Some(arr) => arr,
-                        None => continue,
-                    };
-
-                    for block in content_blocks {
-                        let block_type = block
-                            .get("type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-
-                        match block_type {
-                            "text" => {
-                                let text = block
-                                    .get("text")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                events.push(TranscriptEvent {
-                                    timestamp: ts,
-                                    session_id: session_id.clone(),
-                                    message_type: "assistant_text".to_string(),
-                                    content_preview: truncate_str(text, preview_len).to_string(),
-                                    project_path: project_path.clone(),
-                                });
-                            }
-                            "tool_use" => {
-                                let tool_name = block
-                                    .get("name")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let empty_obj = serde_json::Value::Object(serde_json::Map::new());
-                                let tool_input = block
-                                    .get("input")
-                                    .unwrap_or(&empty_obj);
-                                let preview = tool_input_preview(tool_name, tool_input);
-                                events.push(TranscriptEvent {
-                                    timestamp: ts,
-                                    session_id: session_id.clone(),
-                                    message_type: format!("tool_use:{tool_name}"),
-                                    content_preview: truncate_str(&preview, preview_len)
-                                        .to_string(),
-                                    project_path: project_path.clone(),
-                                });
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "progress" => {
-                    let data = &entry["data"];
-                    let subtype = data
-                        .get("type")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    if subtype == "tool_result" {
-                        let tool_name = data
-                            .get("tool_name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-                        let output_str = match data.get("output") {
-                            Some(v) => match v.as_str() {
-                                Some(s) => s.to_string(),
-                                None => v.to_string(),
-                            },
-                            None => String::new(),
-                        };
-                        events.push(TranscriptEvent {
-                            timestamp: ts,
-                            session_id: session_id.clone(),
-                            message_type: format!("tool_result:{tool_name}"),
-                            content_preview: truncate_str(&output_str, preview_len).to_string(),
-                            project_path: project_path.clone(),
-                        });
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        let final_offset = reader.stream_position().map_err(|e| e.to_string())?;
-        Ok((events, final_offset))
-    })
-    .map_err(|e| pyo3::exceptions::PyIOError::new_err(e))?;
-
-    // Convert events to Python dicts
     let py_list = PyList::empty(py);
     for ev in &events {
         let dict = PyDict::new(py);
