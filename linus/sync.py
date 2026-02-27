@@ -11,7 +11,6 @@ Usage:
 import json
 import logging
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -24,6 +23,7 @@ log = logging.getLogger(__name__)
 DATA_DIR = config.DATA_DIR
 LINUS_DIR = DATA_DIR / "linus"
 STATE_PATH = LINUS_DIR / "training_state.json"
+HISTORY_PATH = LINUS_DIR / "training_history.jsonl"
 ADAPTER_DIR = LINUS_DIR / "adapters_modal"
 
 APP_NAME = "linus"
@@ -136,21 +136,27 @@ def run_eval() -> dict | None:
 
 
 def pull_adapters() -> bool:
-    cmd = [
-        sys.executable,
-        "-m",
-        "modal",
-        "volume",
-        "get",
-        "linus-adapters",
-        "latest/",
-        str(ADAPTER_DIR) + "/",
-    ]
-    log.info("Pulling adapters: %s", " ".join(cmd))
+    """Download adapter files from Modal volume via the Python SDK."""
+    import modal
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        vol = modal.Volume.from_name("linus-adapters")
+        ADAPTER_DIR.mkdir(parents=True, exist_ok=True)
+        dest = ADAPTER_DIR / "latest"
+        dest.mkdir(parents=True, exist_ok=True)
+        for entry in vol.listdir("latest/"):
+            if entry.type.name == "DIRECTORY":
+                continue
+            path = entry.path
+            data = b""
+            for chunk in vol.read_file(path):
+                data += chunk
+            local_path = ADAPTER_DIR / path
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            local_path.write_bytes(data)
+            log.info("Pulled %s (%dKB)", path, len(data) // 1024)
+        return True
+    except Exception:
         log.exception("Failed to pull adapters")
         return False
 
@@ -227,6 +233,19 @@ def run_cycle():
         "semantic_similarity": eval_result.get("semantic_similarity", 0),
     }
     log.info("Eval: %s", state["last_eval_metrics"])
+
+    # Append to history
+    history_record = {
+        "ts": time.time(),
+        "train_loss": state["last_train_loss"],
+        "eval": state["last_eval_metrics"],
+        "dataset": {
+            "train": ds_stats.get("train_examples", 0),
+            "val": ds_stats.get("val_examples", 0),
+        },
+    }
+    with open(HISTORY_PATH, "a") as f:
+        f.write(json.dumps(history_record) + "\n")
 
     # Gate: only pull adapters if eval passes threshold
     score = eval_result.get("score", 0)
