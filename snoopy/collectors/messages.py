@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import snoopy.config as config
+from snoopy._native import extract_attributed_body_text as _extract_text_from_attributed_body
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
 
@@ -26,39 +27,6 @@ log = logging.getLogger(__name__)
 _MESSAGES_DB = Path("~/Library/Messages/chat.db").expanduser()
 _APPLE_EPOCH_OFFSET = 978307200  # seconds between 2001-01-01 and 1970-01-01
 _CONTENT_PREVIEW_LEN = 200
-
-
-def _extract_text_from_attributed_body(blob: bytes) -> str:
-    """Extract plain text from the NSArchiver attributedBody blob.
-
-    The blob is a typedstream (NSArchiver) format. The message text appears
-    after the NSString class marker, with a length byte prefix:
-      ...NSString\x01\x94\x84\x01+\x05Rahul...
-                                  ^len ^text
-    The \x01+ is a type marker, then a length byte, then UTF-8 text.
-    """
-    if not blob:
-        return ""
-    try:
-        marker = b"NSString"
-        idx = blob.find(marker)
-        if idx == -1:
-            return ""
-        # Skip past: NSString \x01 \x94 \x84 \x01 + <length_byte> <text>
-        # Find the \x01+ sequence after NSString
-        search_start = idx + len(marker)
-        plus_idx = blob.find(b"\x01+", search_start)
-        if plus_idx == -1:
-            return ""
-        length_offset = plus_idx + 2
-        if length_offset >= len(blob):
-            return ""
-        text_len = blob[length_offset]
-        text_start = length_offset + 1
-        text_bytes = blob[text_start:text_start + text_len]
-        return text_bytes.decode("utf-8", errors="replace")
-    except Exception:
-        return ""
 
 
 class MessagesCollector(BaseCollector):

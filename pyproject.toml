@@ -1,3 +1,7 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
 [project]
 name = "snoopy"
 version = "0.1.0"
@@ -15,14 +19,17 @@ snoopy = "snoopy.cli:main"
 snoopy-hook = "snoopy.hooks:main"
 snoopy-menubar = "snoopy.menubar:main"
 
-[tool.setuptools.packages.find]
-include = ["snoopy*"]
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "snoopy_native"
+python-packages = ["snoopy"]
 
 [tool.uv]
 package = true
 
 [dependency-groups]
 dev = [
+    "maturin",
     "pytest",
     "ruff",
     "ty",
