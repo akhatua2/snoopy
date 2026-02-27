@@ -5,20 +5,15 @@ Deduplicates: only logs NEW connections that weren't seen in the previous poll.
 """
 
 import logging
-import re
 import subprocess
 import time
 
 import snoopy.config as config
+from snoopy._native import parse_lsof_output
 from snoopy.buffer import Event
 from snoopy.collectors.base import BaseCollector
 
 log = logging.getLogger(__name__)
-
-_LSOF_RE = re.compile(
-    r"^(\S+)\s+\d+\s+\S+\s+\S+\s+IPv[46]\s+\S+\s+\S+\s+TCP\s+"
-    r"\S+->(\d+\.\d+\.\d+\.\d+):(\d+)\s+\(ESTABLISHED\)"
-)
 
 
 class NetworkCollector(BaseCollector):
@@ -42,14 +37,8 @@ class NetworkCollector(BaseCollector):
         if result.returncode != 0:
             return
 
-        current: set[tuple[str, str, int]] = set()
         now = time.time()
-
-        for line in result.stdout.split("\n"):
-            m = _LSOF_RE.match(line)
-            if m:
-                key = (m.group(1), m.group(2), int(m.group(3)))
-                current.add(key)
+        current: set[tuple[str, str, int]] = parse_lsof_output(result.stdout)
 
         # Only log connections we haven't seen before
         new_connections = current - self._seen

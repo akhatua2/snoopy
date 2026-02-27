@@ -7,3 +7,5 @@ __pycache__/
 /data
 /snoopy.egg-info
 /uv.lock
+/target/
+Cargo.lock
