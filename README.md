@@ -1,12 +1,7 @@
-```                                                                
- .oooo.o ooo. .oo.    .ooooo.   .ooooo.  oo.ooooo.  oooo    ooo
-d88(  "8 `888P"Y88b  d88' `88b d88' `88b  888' `88b  `88.  .8'
-`"Y88b.   888   888  888   888 888   888  888   888   `88..8'
-o.  )88b  888   888  888   888 888   888  888   888    `888'
-8""888P' o888o o888o `Y8bod8P' `Y8bod8P'  888bod8P'     .8'
-                                          888       .o..P'
-                                         o888o      `Y8P'
-```
+<p align="center">
+  <img src="assets/snoopy.png" alt="snoopy" />
+</p>
+
 Snoopy is a local-first macOS daemon that continuously records your digital
 activity into a single SQLite database. Every app switch, browser visit,
 terminal command, message, and clipboard copy — logged with timestamps,
@@ -44,7 +39,7 @@ durations, and context. The data never leaves your machine.
 ```bash
 git clone https://github.com/akhatua2/snoopy.git && cd snoopy
 uv sync
-./install.sh
+snoopy install
 ```
 
 ### Permissions
@@ -65,11 +60,13 @@ Optional: `brew install nowplaying-cli` · Set `OURA_PAT=your_token` in `.env`.
 ## Usage
 
 ```bash
-launchctl list | grep snoopy                                       # status
-tail -f data/snoopy.log                                            # logs
-kill -HUP $(cat data/snoopy.pid)                                   # reload
-launchctl unload ~/Library/LaunchAgents/com.snoopy.daemon.plist    # stop
-./uninstall.sh                                                     # remove
+snoopy status                   # check daemon status
+snoopy logs                     # view recent logs
+snoopy stop                     # stop the daemon
+snoopy start                    # start the daemon
+snoopy restart                  # restart
+snoopy menubar                  # launch menu bar app
+snoopy uninstall                # remove everything
 ```
 
 ### Querying
