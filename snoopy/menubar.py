@@ -2,7 +2,7 @@
 
 import signal
 import subprocess
-import time
+import threading
 from pathlib import Path
 
 import AppKit
@@ -371,17 +371,19 @@ class StatusBarController(NSObject):
 
     @objc.typedSelector(b'v@:@')
     def onToggleDaemon_(self, _sender):
-        if _is_running():
-            subprocess.run(["launchctl", "unload", str(_PLIST_DST)],
-                           capture_output=True)
-        else:
+        self._running = not self._running
+        self._update_buttons()
+        self._animate()
+        threading.Thread(target=self._toggle_daemon_bg, daemon=True).start()
+
+    def _toggle_daemon_bg(self):
+        if self._running:
             if _PLIST_DST.exists():
                 subprocess.run(["launchctl", "load", "-w", str(_PLIST_DST)],
                                capture_output=True)
-        time.sleep(1)
-        self._running = _is_running()
-        self._update_buttons()
-        self._animate()
+        else:
+            subprocess.run(["launchctl", "unload", str(_PLIST_DST)],
+                           capture_output=True)
 
     @objc.typedSelector(b'v@:@')
     def onQuit_(self, _sender):
