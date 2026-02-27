@@ -14,23 +14,17 @@ import modal
 
 app = modal.App("linus")
 
-serve_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install("vllm")
-)
+serve_image = modal.Image.debian_slim(python_version="3.12").pip_install("vllm")
 
-image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
-        "torch",
-        "transformers>=4.45",
-        "datasets",
-        "peft>=0.13",
-        "trl==0.14.0",
-        "wandb",
-        "accelerate",
-        "sentence-transformers",
-    )
+image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "torch",
+    "transformers>=4.45",
+    "datasets",
+    "peft>=0.13",
+    "trl==0.14.0",
+    "wandb",
+    "accelerate",
+    "sentence-transformers",
 )
 
 vol = modal.Volume.from_name("linus-adapters", create_if_missing=True)
@@ -99,7 +93,15 @@ def train(
         r=LORA_RANK,
         lora_alpha=LORA_ALPHA,
         lora_dropout=0.0,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, lora_config)
@@ -193,7 +195,7 @@ def train(
 
     vol.commit()
 
-    print(f"\nTraining complete in {elapsed/60:.1f} min")
+    print(f"\nTraining complete in {elapsed / 60:.1f} min")
     print("Adapters saved to volume 'linus-adapters' at /latest/")
 
     wandb.finish()
@@ -264,7 +266,7 @@ def evaluate(val_jsonl: str, max_examples: int = 200) -> dict:
             )
 
         generated = tokenizer.decode(
-            output_ids[0][inputs["input_ids"].shape[1]:],
+            output_ids[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         ).strip()
 
@@ -319,17 +321,29 @@ def evaluate(val_jsonl: str, max_examples: int = 200) -> dict:
 @modal.web_server(port=8000, startup_timeout=300)
 def serve():
     import subprocess
-    subprocess.Popen([
-        "python", "-m", "vllm.entrypoints.openai.api_server",
-        "--model", MODEL,
-        "--enable-lora",
-        "--lora-modules", f"linus=/adapters/latest",
-        "--max-lora-rank", str(LORA_RANK),
-        "--dtype", "bfloat16",
-        "--max-model-len", "2048",
-        "--host", "0.0.0.0",
-        "--port", "8000",
-    ])
+
+    subprocess.Popen(
+        [
+            "python",
+            "-m",
+            "vllm.entrypoints.openai.api_server",
+            "--model",
+            MODEL,
+            "--enable-lora",
+            "--lora-modules",
+            "linus=/adapters/latest",
+            "--max-lora-rank",
+            str(LORA_RANK),
+            "--dtype",
+            "bfloat16",
+            "--max-model-len",
+            "2048",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8000",
+        ]
+    )
 
 
 # ── Local entrypoints ────────────────────────────────────────────────────
@@ -374,7 +388,7 @@ def eval_main(max_examples: int = 200):
         return
 
     val_jsonl = val_path.read_text()
-    n_examples = len([l for l in val_jsonl.strip().split("\n") if l.strip()])
+    n_examples = len([line for line in val_jsonl.strip().split("\n") if line.strip()])
     print(f"Uploading val set: {n_examples} examples ({len(val_jsonl) // 1024}KB)")
 
     result = evaluate.remote(val_jsonl=val_jsonl, max_examples=max_examples)

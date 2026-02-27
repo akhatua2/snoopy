@@ -29,9 +29,7 @@ def _rainbow_colors(tick, n_rows):
     colors = []
     for row in range(n_rows):
         hue = (tick * 0.08 + row * 0.08) % 1.0
-        colors.append(
-            AppKit.NSColor.colorWithHue_saturation_brightness_alpha_(
-                hue, 0.7, 1.0, 1.0))
+        colors.append(AppKit.NSColor.colorWithHue_saturation_brightness_alpha_(hue, 0.7, 1.0, 1.0))
     return colors
 
 
@@ -75,10 +73,10 @@ _TAIL = {
 }
 # fmt: on
 
-_TAIL_CYCLE = ['right', 'mid', 'left', 'mid']  # 4-tick period
+_TAIL_CYCLE = ["right", "mid", "left", "mid"]  # 4-tick period
 
 
-def _compose_frame(tail='right', look='center', eyes='open', ear='both'):
+def _compose_frame(tail="right", look="center", eyes="open", ear="both"):
     """Build a sprite frame from independent animation layers."""
     grid = [row[:] for row in IDLE]
 
@@ -88,13 +86,13 @@ def _compose_frame(tail='right', look='center', eyes='open', ear='both'):
         grid[r][:7] = t[r]
 
     # Eye positions depend on look direction
-    if look == 'left':
+    if look == "left":
         eye_cols = (14, 17)
         grid[5][15] = 2
         grid[5][18] = 2
         grid[5][14] = 1
         grid[5][17] = 1
-    elif look == 'right':
+    elif look == "right":
         eye_cols = (16, 19)
         grid[5][15] = 2
         grid[5][18] = 2
@@ -104,20 +102,21 @@ def _compose_frame(tail='right', look='center', eyes='open', ear='both'):
         eye_cols = (15, 18)
 
     # Blink: set current eye positions to cream
-    if eyes == 'closed':
+    if eyes == "closed":
         grid[5][eye_cols[0]] = 2
         grid[5][eye_cols[1]] = 2
 
     # Ear twitch (row 0)
-    if ear == 'left_down':
+    if ear == "left_down":
         grid[0][14] = 0
-    elif ear == 'right_down':
+    elif ear == "right_down":
         grid[0][19] = 0
 
     return grid
 
 
 # ── Sprite rendering ─────────────────────────────────────────────────────
+
 
 class _SpriteView(AppKit.NSView):
     """Draws a pixel grid with crisp nearest-neighbor style."""
@@ -179,10 +178,10 @@ def _grid_to_image(grid, px=3, row_colors=None):
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
+
 def _is_running():
     try:
-        out = subprocess.run(["launchctl", "list"],
-                             capture_output=True, text=True).stdout
+        out = subprocess.run(["launchctl", "list"], capture_output=True, text=True).stdout
         return _PLIST_LABEL in out
     except OSError:
         return False
@@ -201,13 +200,13 @@ def _btn(title, x, y, w, h=30, color=None):
 
 # ── Panel & background ───────────────────────────────────────────────────
 
+
 class _Panel(AppKit.NSPanel):
     def initWithRect_(self, rect):
-        mask = (AppKit.NSWindowStyleMaskBorderless
-                | AppKit.NSWindowStyleMaskNonactivatingPanel)
-        self = objc.super(_Panel, self) \
-            .initWithContentRect_styleMask_backing_defer_(
-                rect, mask, AppKit.NSBackingStoreBuffered, False)
+        mask = AppKit.NSWindowStyleMaskBorderless | AppKit.NSWindowStyleMaskNonactivatingPanel
+        self = objc.super(_Panel, self).initWithContentRect_styleMask_backing_defer_(
+            rect, mask, AppKit.NSBackingStoreBuffered, False
+        )
         if self is None:
             return None
         self.setLevel_(AppKit.NSStatusWindowLevel)
@@ -216,7 +215,8 @@ class _Panel(AppKit.NSPanel):
         self.setBackgroundColor_(AppKit.NSColor.clearColor())
         self.setCollectionBehavior_(
             AppKit.NSWindowCollectionBehaviorCanJoinAllSpaces
-            | AppKit.NSWindowCollectionBehaviorTransient)
+            | AppKit.NSWindowCollectionBehaviorTransient
+        )
         return self
 
     def canBecomeKeyWindow(self):
@@ -239,6 +239,7 @@ class _RoundedVisualView(AppKit.NSVisualEffectView):
 
 # ── Main controller ──────────────────────────────────────────────────────
 
+
 class StatusBarController(NSObject):
     def init(self):
         self = objc.super(StatusBarController, self).init()
@@ -246,8 +247,9 @@ class StatusBarController(NSObject):
             return None
 
         # Status bar item
-        self._item = AppKit.NSStatusBar.systemStatusBar() \
-            .statusItemWithLength_(AppKit.NSVariableStatusItemLength)
+        self._item = AppKit.NSStatusBar.systemStatusBar().statusItemWithLength_(
+            AppKit.NSVariableStatusItemLength
+        )
         btn = self._item.button()
         btn.setImage_(self._make_icon(_compose_frame()))
         btn.setTarget_(self)
@@ -265,26 +267,27 @@ class StatusBarController(NSObject):
         self._training_active = False
 
         # Dismiss on focus loss
-        NSNotificationCenter.defaultCenter() \
-            .addObserver_selector_name_object_(
-                self, "panelLostFocus:",
-                AppKit.NSWindowDidResignKeyNotification,
-                self._panel)
+        NSNotificationCenter.defaultCenter().addObserver_selector_name_object_(
+            self, "panelLostFocus:", AppKit.NSWindowDidResignKeyNotification, self._panel
+        )
 
         # Animation timer (0.3s per tick)
         NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-            0.3, self, "animate:", None, True)
+            0.3, self, "animate:", None, True
+        )
 
         # Daemon status check (every 5s)
         NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-            5.0, self, "checkDaemon:", None, True)
+            5.0, self, "checkDaemon:", None, True
+        )
 
         self._update_buttons()
         self._animate()
 
         # Start training schedule (12h interval) — delayed to avoid import fork
         NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-            2.0, self, "startTrainingSchedule:", None, False)
+            2.0, self, "startTrainingSchedule:", None, False
+        )
 
         return self
 
@@ -296,8 +299,7 @@ class StatusBarController(NSObject):
         y -= 18
         sw = len(IDLE[0]) * _PX
         sh = len(IDLE) * _PX
-        self._sprite = _SpriteView.alloc().initWithFrame_(
-            (((_W - sw) / 2, y - sh), (sw, sh)))
+        self._sprite = _SpriteView.alloc().initWithFrame_((((_W - sw) / 2, y - sh), (sw, sh)))
         v.addSubview_(self._sprite)
         y -= sh
 
@@ -307,8 +309,7 @@ class StatusBarController(NSObject):
         gap = 8
         x0 = (_W - (bw * 2 + gap)) / 2
 
-        self._toggle_btn = _btn("Start", x0, y - 30, bw,
-                                color=AppKit.NSColor.systemGreenColor())
+        self._toggle_btn = _btn("Start", x0, y - 30, bw, color=AppKit.NSColor.systemGreenColor())
         self._toggle_btn.setTarget_(self)
         self._toggle_btn.setAction_("onToggleDaemon:")
         v.addSubview_(self._toggle_btn)
@@ -349,8 +350,9 @@ class StatusBarController(NSObject):
         # "Train Now" button
         y -= 34
         tw = 100
-        self._train_btn = _btn("Train Now", (_W - tw) / 2, y, tw,
-                                color=AppKit.NSColor.systemBlueColor())
+        self._train_btn = _btn(
+            "Train Now", (_W - tw) / 2, y, tw, color=AppKit.NSColor.systemBlueColor()
+        )
         self._train_btn.setTarget_(self)
         self._train_btn.setAction_("onTrainNow:")
         v.addSubview_(self._train_btn)
@@ -361,13 +363,14 @@ class StatusBarController(NSObject):
         img.setSize_((33, 18))
         return img
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def startTrainingSchedule_(self, _timer):
         threading.Thread(target=self._start_training_schedule_bg, daemon=True).start()
 
     @staticmethod
     def _start_training_schedule_bg():
         from linus.sync import start_schedule
+
         start_schedule()
 
     def _animate(self):
@@ -377,21 +380,15 @@ class StatusBarController(NSObject):
         if not self._running:
             # Sleeping: eyes closed, still, occasional ear twitch (dreaming)
             ear_t = t % 30
-            ear = ('left_down' if ear_t == 10
-                   else 'right_down' if ear_t == 20
-                   else 'both')
-            grid = _compose_frame(eyes='closed', ear=ear)
+            ear = "left_down" if ear_t == 10 else "right_down" if ear_t == 20 else "both"
+            grid = _compose_frame(eyes="closed", ear=ear)
         else:
             tail = _TAIL_CYCLE[t % 4]
             look_t = t % 20
-            look = ('right' if look_t in (8, 9)
-                    else 'left' if look_t in (16, 17)
-                    else 'center')
-            eyes = 'closed' if t % 12 == 0 else 'open'
+            look = "right" if look_t in (8, 9) else "left" if look_t in (16, 17) else "center"
+            eyes = "closed" if t % 12 == 0 else "open"
             ear_t = t % 30
-            ear = ('left_down' if ear_t == 10
-                   else 'right_down' if ear_t == 20
-                   else 'both')
+            ear = "left_down" if ear_t == 10 else "right_down" if ear_t == 20 else "both"
             grid = _compose_frame(tail=tail, look=look, eyes=eyes, ear=ear)
 
         row_colors = _rainbow_colors(self._tick, 12) if self._training_active else None
@@ -404,12 +401,10 @@ class StatusBarController(NSObject):
     def _update_buttons(self):
         if self._running:
             self._toggle_btn.setTitle_("Stop")
-            self._toggle_btn.setBezelColor_(
-                AppKit.NSColor.systemOrangeColor())
+            self._toggle_btn.setBezelColor_(AppKit.NSColor.systemOrangeColor())
         else:
             self._toggle_btn.setTitle_("Start")
-            self._toggle_btn.setBezelColor_(
-                AppKit.NSColor.systemGreenColor())
+            self._toggle_btn.setBezelColor_(AppKit.NSColor.systemGreenColor())
 
     def _show(self):
         self._running = _is_running()
@@ -426,29 +421,29 @@ class StatusBarController(NSObject):
     def _hide(self):
         self._panel.orderOut_(None)
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def toggle_(self, _sender):
         if self._panel.isVisible():
             self._hide()
         else:
             self._show()
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def panelLostFocus_(self, _note):
         self._hide()
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def animate_(self, _timer):
         self._animate()
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def checkDaemon_(self, _timer):
         self._running = _is_running()
         if self._panel.isVisible():
             self._update_buttons()
             self._update_training_ui()
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def onToggleDaemon_(self, _sender):
         self._running = not self._running
         self._update_buttons()
@@ -458,15 +453,14 @@ class StatusBarController(NSObject):
     def _toggle_daemon_bg(self):
         if self._running:
             if _PLIST_DST.exists():
-                subprocess.run(["launchctl", "load", "-w", str(_PLIST_DST)],
-                               capture_output=True)
+                subprocess.run(["launchctl", "load", "-w", str(_PLIST_DST)], capture_output=True)
         else:
-            subprocess.run(["launchctl", "unload", str(_PLIST_DST)],
-                           capture_output=True)
+            subprocess.run(["launchctl", "unload", str(_PLIST_DST)], capture_output=True)
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def onTrainNow_(self, _sender):
         from linus.sync import trigger_train
+
         started = trigger_train()
         if started:
             self._train_btn.setEnabled_(False)
@@ -531,9 +525,10 @@ class StatusBarController(NSObject):
             return f"{int(delta / 3600)}h ago"
         return f"{int(delta / 86400)}d ago"
 
-    @objc.typedSelector(b'v@:@')
+    @objc.typedSelector(b"v@:@")
     def onQuit_(self, _sender):
         from linus.sync import stop_schedule
+
         stop_schedule()
         AppKit.NSApplication.sharedApplication().terminate_(None)
 
@@ -552,7 +547,7 @@ def main():
         try:
             os.kill(old_pid, 0)  # check if alive
             os.kill(old_pid, 9)  # kill it
-            import time; time.sleep(0.5)
+            time.sleep(0.5)
         except (ProcessLookupError, ValueError):
             pass
     _PIDFILE.write_text(str(os.getpid()))

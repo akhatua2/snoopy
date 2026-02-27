@@ -110,7 +110,8 @@ def _run_modal(target: str, extra_args: list[str] | None = None) -> dict | None:
         return None
 
     if result.returncode != 0:
-        log.error("Modal failed (rc=%d): %s", result.returncode, result.stderr[-500:] if result.stderr else "")
+        stderr = result.stderr[-500:] if result.stderr else ""
+        log.error("Modal failed (rc=%d): %s", result.returncode, stderr)
         return None
 
     # Parse last JSON object from stdout
@@ -157,8 +158,14 @@ def run_eval() -> dict | None:
 
 def pull_adapters() -> bool:
     cmd = [
-        sys.executable, "-m", "modal", "volume", "get",
-        "linus-adapters", "latest/", str(ADAPTER_DIR) + "/",
+        sys.executable,
+        "-m",
+        "modal",
+        "volume",
+        "get",
+        "linus-adapters",
+        "latest/",
+        str(ADAPTER_DIR) + "/",
     ]
     log.info("Pulling adapters: %s", " ".join(cmd))
     try:
@@ -200,8 +207,11 @@ def run_cycle():
         save_state(state)
         return
 
-    log.info("Dataset: %d train, %d val examples",
-             ds_stats.get("train_examples", 0), ds_stats.get("val_examples", 0))
+    log.info(
+        "Dataset: %d train, %d val examples",
+        ds_stats.get("train_examples", 0),
+        ds_stats.get("val_examples", 0),
+    )
 
     # Step 3: Train on Modal
     state["status"] = "training"
@@ -246,8 +256,9 @@ def run_cycle():
         state["last_error"] = "eval_below_threshold"
         state["last_error_ts"] = time.time()
         save_state(state)
-        log.warning("Eval below threshold (%.3f < %.3f) — keeping old adapters",
-                     score, EVAL_THRESHOLD_SCORE)
+        log.warning(
+            "Eval below threshold (%.3f < %.3f) — keeping old adapters", score, EVAL_THRESHOLD_SCORE
+        )
         return
 
     # Step 5: Pull adapters locally
