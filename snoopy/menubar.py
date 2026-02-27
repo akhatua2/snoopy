@@ -12,6 +12,8 @@ import objc
 from Foundation import NSNotificationCenter, NSObject, NSTimer
 from PyObjCTools import AppHelper
 
+_USER_NAME = os.environ.get("SNOOPY_USER_NAME") or os.environ.get("USER") or "you"
+
 _PLIST_LABEL = "com.snoopy.daemon"
 _PLIST_DST = Path.home() / "Library/LaunchAgents" / f"{_PLIST_LABEL}.plist"
 _W, _H = 220, 210
@@ -329,15 +331,6 @@ class StatusBarController(NSObject):
         v.addSubview_(sep)
         y -= 5
 
-        # "Training" label
-        y -= 14
-        lbl = AppKit.NSTextField.labelWithString_("Training")
-        lbl.setFrame_((((_W - 80) / 2, y), (80, 14)))
-        lbl.setAlignment_(AppKit.NSTextAlignmentCenter)
-        lbl.setFont_(AppKit.NSFont.systemFontOfSize_weight_(10, 0.5))
-        lbl.setTextColor_(AppKit.NSColor.secondaryLabelColor())
-        v.addSubview_(lbl)
-
         # Status text (monospace, small)
         y -= 18
         self._train_status = AppKit.NSTextField.labelWithString_("--")
@@ -480,7 +473,7 @@ class StatusBarController(NSObject):
             self._train_btn.setTitle_("Train Now")
 
         if not STATE_PATH.exists():
-            self._train_status.setStringValue_("No training yet")
+            self._train_status.setStringValue_(f"{_USER_NAME} has not been cloned yet.")
             return
 
         try:
@@ -493,17 +486,20 @@ class StatusBarController(NSObject):
             self._train_status.setStringValue_(status.replace("_", " ").title() + "...")
             return
 
-        parts = []
-        v = state.get("adapter_version", 0)
-        if v:
-            parts.append(f"v{v}")
         eval_metrics = state.get("last_eval_metrics")
         if eval_metrics and "score" in eval_metrics:
-            parts.append(f"Score: {eval_metrics['score']:.0%}")
-        ts = state.get("last_train_complete_ts")
-        if ts:
-            parts.append(self._format_ago(ts))
+            score = eval_metrics["score"]
 
+            base = f"Cloning {_USER_NAME}: {score:.0%}"
+            delta = self._weekly_delta(score)
+            if delta is not None:
+                sign = "+" if delta >= 0 else ""
+                base += f" ({sign}{delta:.0%})"
+
+            self._train_status.setStringValue_(base)
+            return
+
+        parts = []
         err = state.get("last_error")
         if parts:
             self._train_status.setStringValue_(" | ".join(parts))
@@ -512,7 +508,7 @@ class StatusBarController(NSObject):
         elif err:
             self._train_status.setStringValue_(err.replace("_", " ").title())
         else:
-            self._train_status.setStringValue_("No training yet")
+            self._train_status.setStringValue_(f"{_USER_NAME} has not been cloned yet.")
 
     @staticmethod
     def _format_ago(ts):
@@ -524,6 +520,31 @@ class StatusBarController(NSObject):
         if delta < 86400:
             return f"{int(delta / 3600)}h ago"
         return f"{int(delta / 86400)}d ago"
+
+    @staticmethod
+    def _weekly_delta(current_score):
+        """Return score - avg(scores from past 7 days), or None."""
+        from linus.sync import HISTORY_PATH
+
+        if not HISTORY_PATH.exists():
+            return None
+        now = time.time()
+        cutoff = now - 7 * 86400
+        scores = []
+        for line in HISTORY_PATH.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                rec = __import__("json").loads(line)
+            except ValueError:
+                continue
+            if rec.get("ts", 0) >= cutoff:
+                s = (rec.get("eval") or {}).get("score")
+                if s is not None:
+                    scores.append(s)
+        if not scores:
+            return None
+        return current_score - sum(scores) / len(scores)
 
     @objc.typedSelector(b"v@:@")
     def onQuit_(self, _sender):
