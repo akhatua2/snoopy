@@ -56,9 +56,9 @@ def train(
     train_jsonl: str,
     val_jsonl: str,
     iters: int = 400,
-    batch_size: int = 32,
+    batch_size: int = 8,
     lr: float = 2e-5,
-    grad_accum: int = 1,
+    grad_accum: int = 4,
 ):
     import os
     import time
@@ -352,9 +352,9 @@ def serve():
 @app.local_entrypoint()
 def train_main(
     iters: int = 400,
-    batch_size: int = 32,
+    batch_size: int = 8,
     lr: float = 2e-5,
-    grad_accum: int = 1,
+    grad_accum: int = 4,
 ):
     train_path = Path("data/linus/sft_train.jsonl")
     val_path = Path("data/linus/sft_val.jsonl")
