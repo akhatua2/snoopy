@@ -84,7 +84,7 @@ def train(
 
     model = AutoModelForCausalLM.from_pretrained(
         MODEL,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
     )
@@ -231,7 +231,7 @@ def evaluate(val_jsonl: str, max_examples: int = 200) -> dict:
 
     base_model = AutoModelForCausalLM.from_pretrained(
         MODEL,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
     )
