@@ -2,6 +2,7 @@
 """Read the latest few emails from Apple Mail .emlx files.
 Run with Full Disk Access (Terminal in Privacy settings).
 """
+
 import email
 import re
 from pathlib import Path
@@ -24,7 +25,9 @@ def parse_emlx(path: Path) -> dict | None:
         if idx >= 0 and idx < len(raw) - 50:
             start = raw.rfind(b"\n", 0, idx) + 1 if idx > 0 else 0
             decoded = raw[start:].decode("utf-8", errors="replace")
-            if not decoded.lstrip().startswith("<") and ("From:" in decoded or "Content-Type:" in decoded):
+            if not decoded.lstrip().startswith("<") and (
+                "From:" in decoded or "Content-Type:" in decoded
+            ):
                 email_part = decoded
                 break
     # Strategy 2: Classic .emlx - first line = plist byte length, then plist, then email
