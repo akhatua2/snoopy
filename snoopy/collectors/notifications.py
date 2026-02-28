@@ -105,7 +105,7 @@ class NotificationCollector(BaseCollector):
                         if isinstance(plist, dict):
                             req = plist.get("req", {})
                             if isinstance(req, dict):
-                                content = str(req.get("body", ""))[:200]
+                                content = str(req.get("body", ""))
                     except Exception:
                         pass
 

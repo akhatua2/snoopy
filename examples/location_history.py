@@ -103,7 +103,7 @@ def run(date_str: str | None = None, week: bool = False):
 
     if len(locality_time) > 1:
         print(f"  {'─' * 56}")
-        print(f"  Time per area:")
+        print("  Time per area:")
         for loc, secs in sorted(locality_time.items(), key=lambda x: -x[1]):
             print(f"    {loc:<30s} {fmt_duration(secs)}")
         print()

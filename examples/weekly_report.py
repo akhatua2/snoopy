@@ -34,7 +34,7 @@ def run():
     conn = sqlite3.connect(str(DB))
 
     print(f"\n{'=' * 60}")
-    print(f"  Weekly Report")
+    print("  Weekly Report")
     print(f"  {datetime.fromtimestamp(week_start).strftime('%b %d')} → "
           f"{now.strftime('%b %d, %Y')}")
     print(f"{'=' * 60}")
@@ -55,7 +55,7 @@ def run():
         ("mail_events", "Emails"),
     ]
 
-    print(f"\n  EVENT VOLUME")
+    print("\n  EVENT VOLUME")
     print(f"  {'─' * 56}")
     total_events = 0
     for table, label in tables:
@@ -83,7 +83,7 @@ def run():
                 app_time[app] += duration
 
         top_apps = sorted(app_time.items(), key=lambda x: -x[1])[:10]
-        print(f"\n  TOP APPS BY SCREEN TIME")
+        print("\n  TOP APPS BY SCREEN TIME")
         print(f"  {'─' * 56}")
         for app, secs in top_apps:
             pct = secs / sum(app_time.values()) * 100
@@ -98,7 +98,7 @@ def run():
     ).fetchall()
 
     if cmds:
-        print(f"\n  TOP SHELL COMMANDS")
+        print("\n  TOP SHELL COMMANDS")
         print(f"  {'─' * 56}")
         for cmd, count in cmds:
             print(f"    {count:>4}x  {cmd[:50]}")
@@ -111,7 +111,7 @@ def run():
     ).fetchall()
 
     if locs:
-        print(f"\n  LOCATIONS")
+        print("\n  LOCATIONS")
         print(f"  {'─' * 56}")
         for loc, count in locs:
             print(f"    {loc:<30s} {count} pings")
@@ -128,7 +128,7 @@ def run():
     ).fetchone()[0]
 
     if msg_count or mail_count or notif_count:
-        print(f"\n  COMMUNICATION")
+        print("\n  COMMUNICATION")
         print(f"  {'─' * 56}")
         if msg_count:
             print(f"    Messages:       {msg_count}")
@@ -145,7 +145,7 @@ def run():
     ).fetchone()
 
     if batt and batt[3] > 0:
-        print(f"\n  BATTERY")
+        print("\n  BATTERY")
         print(f"  {'─' * 56}")
         print(f"    Range:          {batt[0]}% → {batt[1]}%")
         print(f"    Charging events: {batt[2]} of {batt[3]} readings")
@@ -158,7 +158,7 @@ def run():
     ).fetchall()
 
     if daily:
-        print(f"\n  DAILY ACTIVITY (window events)")
+        print("\n  DAILY ACTIVITY (window events)")
         print(f"  {'─' * 56}")
         max_count = max(c for _, c in daily)
         for day, count in daily:

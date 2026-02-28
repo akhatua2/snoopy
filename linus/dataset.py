@@ -6,6 +6,7 @@ training examples in Qwen chat format for mlx-lm fine-tuning.
 
 import json
 import logging
+import random
 import sqlite3
 import time
 from collections import Counter
@@ -67,35 +68,69 @@ def _load_oura_scores(conn: sqlite3.Connection) -> dict[str, tuple[int, int, int
     return {day: (sleep or 0, ready or 0, activity or 0) for day, sleep, ready, activity in rows}
 
 
+def _load_locations(conn: sqlite3.Connection) -> list[tuple[float, str]]:
+    """Load locations as (timestamp, address) sorted by time."""
+    rows = conn.execute(
+        "SELECT timestamp, COALESCE(address, locality) FROM location_events "
+        "WHERE address IS NOT NULL OR locality IS NOT NULL ORDER BY timestamp"
+    ).fetchall()
+    return [(ts, loc) for ts, loc in rows]
+
+
+def _nearest_location(
+    ts: float, locations: list[tuple[float, str]], max_age_s: float = 1800,
+) -> str | None:
+    """Find the closest location reading to a timestamp (within max_age_s)."""
+    if not locations:
+        return None
+    import bisect
+    idx = bisect.bisect_right(locations, (ts,)) - 1
+    best = None
+    best_dist = max_age_s
+    for i in (idx, idx + 1):
+        if 0 <= i < len(locations):
+            dist = abs(locations[i][0] - ts)
+            if dist < best_dist:
+                best_dist = dist
+                best = locations[i][1]
+    return best
+
+
 def _get_ambient_context(
     ts: float,
     calendar_events: list[tuple[float, float, str]],
     oura_scores: dict[str, tuple[int, int, int]],
+    locations: list[tuple[float, str]] | None = None,
 ) -> str:
     """Build ambient context string for a given timestamp."""
     parts = []
 
-    # Upcoming calendar events (within next 2 hours)
-    upcoming = []
-    for start_ts, end_ts, title in calendar_events:
-        delta_min = (start_ts - ts) / 60
-        if -30 <= delta_min <= 120 and title:  # ongoing or upcoming
-            if delta_min < 0:
-                upcoming.append(f'"{title}" (ongoing)')
-            elif delta_min < 5:
-                upcoming.append(f'"{title}" (starting now)')
-            else:
-                upcoming.append(f'"{title}" in {int(delta_min)} min')
-    # Dedup by title (same meeting can appear twice in DB)
+    # Full day's calendar with relative timing
+    dt = datetime.fromtimestamp(ts)
+    day_start = dt.replace(hour=0, minute=0, second=0).timestamp()
+    day_end = day_start + 86400
+
+    day_events = []
     seen_titles: set[str] = set()
-    deduped = []
-    for entry in upcoming:
-        title = entry.split('"')[1] if '"' in entry else entry
-        if title not in seen_titles:
+    for start_ts, end_ts, title in calendar_events:
+        if not title or title in seen_titles:
+            continue
+        if start_ts < day_end and end_ts > day_start:
             seen_titles.add(title)
-            deduped.append(entry)
-    if deduped:
-        parts.append("Calendar: " + ", ".join(deduped[:2]))
+            event_dt = datetime.fromtimestamp(start_ts)
+            time_str = event_dt.strftime("%H:%M")
+            delta_min = (start_ts - ts) / 60
+            if -30 <= delta_min < 0:
+                label = f"{time_str} {title} (ongoing)"
+            elif 0 <= delta_min < 5:
+                label = f"{time_str} {title} (starting now)"
+            else:
+                label = f"{time_str} {title}"
+            day_events.append((start_ts, label))
+
+    day_events.sort()
+    if day_events:
+        parts.append("Calendar: " + ", ".join(label for _, label in day_events))
 
     # Oura scores for the day
     day_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
@@ -103,13 +138,18 @@ def _get_ambient_context(
         sleep, readiness, activity = oura_scores[day_str]
         parts.append(f"Sleep: {sleep}, Readiness: {readiness}")
 
+    # Location
+    loc = _nearest_location(ts, locations or [])
+    if loc:
+        parts.append(f"Location: {loc}")
+
     return ". ".join(parts)
 
 
 @dataclass
 class DatasetConfig:
-    context_window: int = 15
-    min_context: int = 3
+    context_window_min: int = 3
+    context_window_max: int = 50
     min_gap_s: float = 1.0
     max_gap_s: float = 1800.0
     max_consecutive_same: int = 2
@@ -173,29 +213,35 @@ def _format_context(
     return "\n".join(lines)
 
 
-_NON_USER_ACTIONS = frozenset(
+_CONTEXT_ONLY_ACTIONS = frozenset(
     {
         SESSION_BREAK,
-        # Stimuli — things that happen TO the user (useful context, not targets)
+        # Stimuli — things that happen TO the user
         "mail:recv",
         "message:recv",
         "notify",
         "mic:on",
         "mic:off",
-        # Claude's actions — not the user's (user action is claude:user)
+        # Claude's actions — not the user's
         "claude:Bash",
         "claude:Edit",
         "claude:Read",
         "claude:Write",
         "claude:Grep",
         "claude:Glob",
+        # Low-signal actions — useful context, not worth predicting
+        "focus",
+        "launch",
+        "quit",
+        "lock",
+        "unlock",
     }
 )
 
 
 def _is_predictable(action: Action) -> bool:
-    """Whether this is a user-initiated action (not a stimulus or Claude's action)."""
-    return action.action_type not in _NON_USER_ACTIONS
+    """Whether this is a high-value prediction target (has real content)."""
+    return action.action_type not in _CONTEXT_ONLY_ACTIONS
 
 
 def _build_examples(
@@ -203,9 +249,11 @@ def _build_examples(
     cfg: DatasetConfig,
     calendar_events: list[tuple[float, float, str]] | None = None,
     oura_scores: dict[str, tuple[int, int, int]] | None = None,
+    locations: list[tuple[float, str]] | None = None,
 ) -> list[dict]:
     calendar_events = calendar_events or []
     oura_scores = oura_scores or {}
+    locations = locations or []
 
     # Split at SESSION_BREAK markers
     sessions: list[list[Action]] = []
@@ -227,23 +275,34 @@ def _build_examples(
         # But we only predict user-initiated actions
         target_indices = [i for i, a in enumerate(all_events) if _is_predictable(a)]
 
-        for ti in target_indices:
+        for idx, ti in enumerate(target_indices):
             target = all_events[ti]
             # Context: the preceding events (all types, including stimuli)
-            start = max(0, ti - cfg.context_window)
-            context = all_events[start:ti]
+            window = random.randint(cfg.context_window_min, cfg.context_window_max)
+            context = all_events[max(0, ti - window):ti]
 
-            if len(context) < cfg.min_context:
+            if len(context) < cfg.context_window_min:
                 continue
 
             gap = target.timestamp - context[-1].timestamp
             if gap < cfg.min_gap_s or gap > cfg.max_gap_s:
                 continue
 
-            ambient = _get_ambient_context(target.timestamp, calendar_events, oura_scores)
+            # Multi-action targets: randomly predict 1-3 consecutive actions
+            n_targets = random.choices([1, 2, 3], weights=[0.5, 0.3, 0.2])[0]
+            targets = [target]
+            for j in range(idx + 1, min(idx + n_targets, len(target_indices))):
+                next_target = all_events[target_indices[j]]
+                if next_target.timestamp - targets[-1].timestamp > cfg.max_gap_s:
+                    break
+                targets.append(next_target)
+
+            ambient = _get_ambient_context(
+                target.timestamp, calendar_events, oura_scores, locations,
+            )
             system_prompt = _build_system_prompt(ambient)
             prompt = _format_context(context, target.timestamp, cfg)
-            target_text = target.format()
+            target_text = "\n".join(t.format() for t in targets)
 
             examples.append(
                 {
@@ -327,13 +386,15 @@ def build_dataset(
     try:
         calendar_events = _load_calendar_events(conn)
         oura_scores = _load_oura_scores(conn)
+        locations = _load_locations(conn)
     finally:
         conn.close()
     log.info(
-        "Ambient context: %d calendar events, %d oura days", len(calendar_events), len(oura_scores)
+        "Ambient context: %d calendar events, %d oura days, %d locations",
+        len(calendar_events), len(oura_scores), len(locations),
     )
 
-    examples = _build_examples(timeline, cfg, calendar_events, oura_scores)
+    examples = _build_examples(timeline, cfg, calendar_events, oura_scores, locations)
     log.info("Raw examples: %d", len(examples))
 
     # Sort by target timestamp

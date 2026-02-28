@@ -3,6 +3,7 @@
 Run with Full Disk Access: System Settings > Privacy & Security > Full Disk Access > add Terminal.
 Then: python scripts/explore_mail_schema.py
 """
+
 import os
 import shutil
 import sqlite3
@@ -38,7 +39,9 @@ def find_envelope_index() -> Path | None:
     for v in sorted(versions, key=lambda p: p.name, reverse=True):
         maildata = v / "MailData"
         for f in maildata.iterdir() if maildata.exists() else []:
-            if f.is_file() and (f.suffix in (".db", ".sqlite") or "Envelope" in f.name or "envelope" in f.name):
+            if f.is_file() and (
+                f.suffix in (".db", ".sqlite") or "Envelope" in f.name or "envelope" in f.name
+            ):
                 print(f"Found candidate: {f}")
                 return f
     return None
@@ -155,7 +158,8 @@ def main() -> None:
     print("\n=== FULL MESSAGE SAMPLE (subject + sender) ===")
     try:
         cur.execute("""
-            SELECT m.ROWID, datetime(m.date_received, 'unixepoch'), sub.subject, se.ROWID as sender_id
+            SELECT m.ROWID, datetime(m.date_received, 'unixepoch'),
+                   sub.subject, se.ROWID as sender_id
             FROM messages m
             LEFT JOIN subjects sub ON m.subject = sub.ROWID
             LEFT JOIN senders se ON m.sender = se.ROWID
@@ -200,7 +204,7 @@ def main() -> None:
         for p in paths[:50]:
             print(f"  {p.relative_to(MAIL_BASE)} ({p.stat().st_size} b)")
         if len(paths) > 50:
-            print(f"  ... +{len(paths)-50} more files")
+            print(f"  ... +{len(paths) - 50} more files")
     except Exception as e:
         print("  ", e)
 
@@ -226,7 +230,12 @@ def main() -> None:
 
     print("\n=== message_metadata with content ===")
     try:
-        cur.execute("SELECT message_id, length(json_values), substr(json_values,1,200) FROM message_metadata WHERE json_values IS NOT NULL LIMIT 3")
+        cur.execute(
+            "SELECT message_id, length(json_values),"
+            " substr(json_values,1,200)"
+            " FROM message_metadata"
+            " WHERE json_values IS NOT NULL LIMIT 3"
+        )
         for row in cur.fetchall():
             print("  ", row)
     except sqlite3.OperationalError:
@@ -238,7 +247,10 @@ def main() -> None:
             if not path.is_file() or path.stat().st_size < 100 or path.stat().st_size > 500_000:
                 continue
             ext = path.suffix.lower()
-            if ext not in (".emlx", ".eml", ".partial", ".plist") and "eml" not in path.name.lower():
+            if (
+                ext not in (".emlx", ".eml", ".partial", ".plist")
+                and "eml" not in path.name.lower()
+            ):
                 continue
             preview = path.read_text(errors="replace")[:500]
             if "From:" in preview or "Subject:" in preview or "Content-Type:" in preview:

@@ -120,14 +120,14 @@ def run(date_str: str | None = None):
         print(f"\n  Focus score:  [{bar}] {score}/100")
 
     if deep_blocks:
-        print(f"\n  DEEP WORK BLOCKS")
+        print("\n  DEEP WORK BLOCKS")
         print(f"  {'─' * 56}")
         for app, start, dur in sorted(deep_blocks, key=lambda x: -x[2]):
             t = datetime.fromtimestamp(start).strftime("%H:%M")
             print(f"    {t}  {app:<25s} {fmt_duration(dur)}")
 
     if hourly_switches:
-        print(f"\n  SWITCHES BY HOUR")
+        print("\n  SWITCHES BY HOUR")
         print(f"  {'─' * 56}")
         max_sw = max(hourly_switches.values())
         for h in range(min(hourly_switches), max(hourly_switches) + 1):

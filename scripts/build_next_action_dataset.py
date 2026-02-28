@@ -9,6 +9,7 @@ Each row:
   - stimuli: incoming events (notifications, messages received) in the window
   - action: what the user actually did (the prediction target)
 """
+
 import json
 import sqlite3
 import time
@@ -23,58 +24,83 @@ def load_events(conn: sqlite3.Connection, cutoff: float) -> list[dict]:
     """Load all events from today into a unified timeline."""
     events = []
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'focus' as type,
-               app_name || CASE WHEN window_title != '' THEN ': ' || window_title ELSE '' END as detail
+               app_name || CASE WHEN window_title != ''
+                   THEN ': ' || window_title ELSE '' END as detail
         FROM window_events WHERE timestamp >= ? AND duration_s >= 10
         ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'browse' as type, title as detail
         FROM browser_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'shell' as type, substr(command, 1, 100) as detail
         FROM shell_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp,
                CASE WHEN is_from_me = 1 THEN 'msg_sent' ELSE 'msg_recv' END as type,
                substr(content_preview, 1, 100) as detail
         FROM message_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'claude_' || message_type as type,
                substr(content_preview, 1, 100) as detail
         FROM claude_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'clipboard' as type, substr(content_text, 1, 80) as detail
         FROM clipboard_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'app_' || event_type as type, app_name as detail
         FROM app_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
-    for row in conn.execute("""
+    for row in conn.execute(
+        """
         SELECT timestamp, 'notification' as type,
                app_name || ': ' || substr(content_preview, 1, 80) as detail
         FROM notification_events WHERE timestamp >= ? ORDER BY timestamp
-    """, (cutoff,)):
+    """,
+        (cutoff,),
+    ):
         events.append({"ts": row[0], "type": row[1], "detail": row[2]})
 
     events.sort(key=lambda e: e["ts"])
@@ -127,13 +153,15 @@ def build_dataset(events: list[dict]) -> list[dict]:
             else:
                 past_actions.append(format_event(prev))
 
-        dataset.append({
-            "timestamp": ev["ts"],
-            "time": time.strftime("%H:%M:%S", time.localtime(ev["ts"])),
-            "past_5min": past_actions[-20:],
-            "stimuli": stimuli[-10:],
-            "action": format_event(ev),
-        })
+        dataset.append(
+            {
+                "timestamp": ev["ts"],
+                "time": time.strftime("%H:%M:%S", time.localtime(ev["ts"])),
+                "past_5min": past_actions[-20:],
+                "stimuli": stimuli[-10:],
+                "action": format_event(ev),
+            }
+        )
 
     return dataset
 
@@ -153,7 +181,7 @@ def main() -> None:
 
     print(f"Dataset: {len(dataset)} rows")
     print(f"Saved to: {out_path}")
-    print(f"\nSample rows:\n")
+    print("\nSample rows:\n")
     for row in dataset[:3]:
         print(f"--- {row['time']} ---")
         print(f"  Past 5min ({len(row['past_5min'])} events):")
@@ -166,7 +194,7 @@ def main() -> None:
         print(f"  → ACTION: {row['action']}")
         print()
 
-    print(f"--- last 3 ---")
+    print("--- last 3 ---")
     for row in dataset[-3:]:
         print(f"\n--- {row['time']} ---")
         print(f"  Past 5min ({len(row['past_5min'])} events):")

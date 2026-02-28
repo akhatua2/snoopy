@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Debug Mail DB schema — inspect senders, mailboxes, and joins."""
+
 import os
 import shutil
 import sqlite3
@@ -43,7 +44,11 @@ def main() -> None:
     print("=== MAILBOXES ===")
     cur.execute("PRAGMA table_info(mailboxes)")
     print("Columns:", [r[1] for r in cur.fetchall()])
-    cur.execute("SELECT ROWID, * FROM mailboxes WHERE ROWID IN (53, 1, 2, 3, 4, 5) OR url LIKE '%Inbox%' OR url LIKE '%Sent%'")
+    cur.execute(
+        "SELECT ROWID, * FROM mailboxes"
+        " WHERE ROWID IN (53, 1, 2, 3, 4, 5)"
+        " OR url LIKE '%Inbox%' OR url LIKE '%Sent%'"
+    )
     for row in cur.fetchall():
         print("  ", row)
 
@@ -71,7 +76,8 @@ def main() -> None:
     print("  Sample messages.sender values:", sender_ids)
     cur.execute("SELECT MAX(ROWID) FROM senders")
     print("  senders max ROWID:", cur.fetchone()[0])
-    cur.execute("""
+    cur.execute(
+        """
         SELECT m.ROWID, m.sender, s.ROWID as s_rid, a.address
         FROM messages m
         LEFT JOIN senders s ON m.sender = s.ROWID
@@ -79,17 +85,22 @@ def main() -> None:
         LEFT JOIN addresses a ON sa.address = a.ROWID
         WHERE m.date_received >= ? AND m.sender IS NOT NULL
         LIMIT 5
-    """, (CUTOFF,))
+    """,
+        (CUTOFF,),
+    )
     for row in cur.fetchall():
         print("  ", row)
     print("\n=== TRY: messages.sender = addresses.ROWID? ===")
-    cur.execute("""
+    cur.execute(
+        """
         SELECT m.ROWID, m.sender, a.address
         FROM messages m
         LEFT JOIN addresses a ON m.sender = a.ROWID
         WHERE m.date_received >= ? AND m.sender IS NOT NULL
         LIMIT 5
-    """, (CUTOFF,))
+    """,
+        (CUTOFF,),
+    )
     for row in cur.fetchall():
         print("  ", row)
 
@@ -98,12 +109,15 @@ def main() -> None:
     cols = [r[1] for r in cur.fetchall()]
     print("recipients columns:", cols)
     msg_col = "message_id" if "message_id" in cols else "message"
-    cur.execute(f"""
+    cur.execute(
+        f"""
         SELECT r.{msg_col}, r.type, a.address
         FROM recipients r
         LEFT JOIN addresses a ON r.address = a.ROWID
         WHERE r.{msg_col} IN (SELECT ROWID FROM messages WHERE date_received >= ? LIMIT 3)
-    """, (CUTOFF,))
+    """,
+        (CUTOFF,),
+    )
     for row in cur.fetchall():
         print("  ", row)
 

@@ -22,12 +22,13 @@ class Action:
     text: str  # e.g. "Chrome: GitHub Pull Requests"
 
     def format(self, show_time: bool = False) -> str:
+        text = self.text.replace("\n", " ").strip()
         if show_time:
             from datetime import datetime
 
             t = datetime.fromtimestamp(self.timestamp).strftime("%H:%M:%S")
-            return f"[{t}] [{self.action_type}] {self.text}"
-        return f"[{self.action_type}] {self.text}"
+            return f"[{t}] [{self.action_type}] {text}"
+        return f"[{self.action_type}] {text}"
 
 
 SESSION_BREAK = "SESSION_BREAK"
@@ -235,7 +236,7 @@ def _clean_url(url: str) -> str:
     return urlunparse(parsed._replace(query=new_query))
 
 
-def _clean_title(title: str, max_len: int = 100) -> str:
+def _clean_title(title: str) -> str:
     if not title:
         return ""
     title = _BRAILLE_RE.sub("", title).strip()
@@ -248,8 +249,6 @@ def _clean_title(title: str, max_len: int = 100) -> str:
     title = _GENERATED_IMAGE_RE.sub("[generated-image]", title)
     # Redact email addresses (PII)
     title = _EMAIL_RE.sub("[email]", title)
-    if len(title) > max_len:
-        title = title[:max_len] + "..."
     return title
 
 
@@ -258,8 +257,6 @@ def _clean_command(cmd: str) -> str:
         return ""
     cmd = _ANSI_RE.sub("", cmd)
     cmd = cmd.replace(_HOME, "~")
-    if len(cmd) > 150:
-        cmd = cmd[:150] + "..."
     return cmd.strip()
 
 
@@ -368,7 +365,7 @@ def _clean_claude_events(conn: sqlite3.Connection, since: float, until: float) -
         preview = (preview or "").strip()
 
         if msg_type == "user":
-            text = preview[:80] if preview else ""
+            text = preview if preview else ""
             if not text:
                 continue  # skip empty user turns (tool_result acks)
             # Skip system-generated messages
@@ -391,14 +388,11 @@ def _clean_claude_events(conn: sqlite3.Connection, since: float, until: float) -
                 if path:
                     actions.append(Action(ts, f"claude:{tool}", path))
             elif tool == "Bash":
-                text = preview[:80] if preview else ""
-                actions.append(Action(ts, "claude:Bash", text))
+                actions.append(Action(ts, "claude:Bash", preview or ""))
             elif tool == "Grep":
-                text = preview[:80] if preview else ""
-                actions.append(Action(ts, "claude:Grep", text))
+                actions.append(Action(ts, "claude:Grep", preview or ""))
             elif tool == "Glob":
-                text = preview[:80] if preview else ""
-                actions.append(Action(ts, "claude:Glob", text))
+                actions.append(Action(ts, "claude:Glob", preview or ""))
 
     return actions
 
@@ -416,7 +410,7 @@ def _clean_message_events(conn: sqlite3.Connection, since: float, until: float) 
         direction = "message:sent" if is_from_me else "message:recv"
         contact = _resolve_contact(contact) if contact else "Unknown"
         service = service or "iMessage"
-        preview = (preview or "")[:50]
+        preview = (preview or "")
         text = f"{contact} via {service}"
         if chat_name and chat_name != contact:
             text += f" ({chat_name})"
@@ -443,7 +437,7 @@ def _clean_notification_events(
             continue
         if ts < 820454400:
             continue
-        preview = (preview or "")[:60]
+        preview = (preview or "")
         text = f"{app}: {preview}" if preview else app
         actions.append(Action(ts, "notify", text))
 
@@ -469,7 +463,7 @@ def _clean_clipboard_events(conn: sqlite3.Connection, since: float, until: float
         # Skip clipboard content with auth tokens or secrets
         if _SENSITIVE_CLIP_RE.search(content):
             continue
-        text = content[:60].replace("\n", " ").strip()
+        text = content.replace("\n", " ").strip()
         if not text:
             continue
         # Strip terminal prompt prefix from copied terminal output
@@ -572,19 +566,21 @@ def _clean_file_events(conn: sqlite3.Connection, since: float, until: float) -> 
 
 def _clean_mail_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
-        "SELECT timestamp, sender, subject, is_from_me "
+        "SELECT timestamp, sender, subject, is_from_me, content_preview "
         "FROM mail_events WHERE timestamp >= ? AND timestamp < ? "
         "ORDER BY timestamp",
         (since, until),
     ).fetchall()
 
     actions = []
-    for ts, sender, subject, is_from_me in rows:
+    for ts, sender, subject, is_from_me, body in rows:
         direction = "mail:sent" if is_from_me else "mail:recv"
-        subject = (subject or "")[:60]
+        subject = subject or ""
+        body = (body or "").strip()
         if is_from_me:
-            # Sender is always the user for sent mail — just show subject
             text = f'"{subject}"' if subject else "(no subject)"
+            if body and body.lower() != subject.lower():
+                text += f" — {body}"
         else:
             sender = sender or "Unknown"
             text = f'{sender}: "{subject}"' if subject else sender

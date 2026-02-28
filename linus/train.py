@@ -137,7 +137,7 @@ def train(
         eval_steps=50,
         save_steps=200,
         save_total_limit=3,
-        max_seq_length=512,
+        max_seq_length=2048,
         dataset_text_field="text",
         report_to="wandb",
         run_name=run_name,

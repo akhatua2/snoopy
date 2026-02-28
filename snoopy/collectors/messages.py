@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 _MESSAGES_DB = Path("~/Library/Messages/chat.db").expanduser()
 _APPLE_EPOCH_OFFSET = 978307200  # seconds between 2001-01-01 and 1970-01-01
-_CONTENT_PREVIEW_LEN = 200
+_CONTENT_PREVIEW_LEN = 100_000
 
 
 def _build_contact_map() -> dict[str, str]:

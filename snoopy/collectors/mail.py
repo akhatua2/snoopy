@@ -23,7 +23,7 @@ from snoopy.collectors.base import BaseCollector
 log = logging.getLogger(__name__)
 
 _MAIL_BASE = Path("~/Library/Mail").expanduser()
-_CONTENT_PREVIEW_LEN = 200
+_CONTENT_PREVIEW_LEN = 100_000
 
 _QUERY_COLUMNS = """
     m.ROWID, m.date_received, m.read, m.deleted, m.flagged,

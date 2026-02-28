@@ -8,7 +8,7 @@ Usage:
 
 import sqlite3
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 DB = Path(__file__).resolve().parent.parent / "data" / "snoopy.db"
@@ -81,13 +81,13 @@ def run(date_str: str | None = None):
     events.sort(key=lambda x: x[0])
 
     if meetings:
-        print(f"\n  MEETINGS")
+        print("\n  MEETINGS")
         print(f"  {'─' * 56}")
         for start, end, title, loc in meetings:
             loc_str = f" @ {loc}" if loc else ""
             print(f"  {start} → {end}  {title}{loc_str}")
 
-    print(f"\n  TIMELINE")
+    print("\n  TIMELINE")
     print(f"  {'─' * 56}")
 
     last_hour = None

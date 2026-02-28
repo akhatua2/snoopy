@@ -2,6 +2,7 @@
 """Collect all available Mail data for last 2 days and report what we actually found.
 Run with Full Disk Access (Terminal in Privacy settings).
 """
+
 import email
 import os
 import re
@@ -51,7 +52,9 @@ def parse_emlx_full(path: Path) -> dict | None:
         if idx >= 0 and idx < len(raw) - 50:
             start = raw.rfind(b"\n", 0, idx) + 1 if idx > 0 else 0
             decoded = raw[start:].decode("utf-8", errors="replace")
-            if not decoded.lstrip().startswith("<") and ("From:" in decoded or "Content-Type:" in decoded):
+            if not decoded.lstrip().startswith("<") and (
+                "From:" in decoded or "Content-Type:" in decoded
+            ):
                 email_part = decoded
                 break
     if not email_part:
@@ -143,7 +146,8 @@ def main() -> None:
 
     # 1. Messages from DB
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(
+        """
         SELECT m.ROWID, m.global_message_id, m.date_received, m.read, m.deleted, m.flagged,
                m.mailbox, m.sender, m.subject, m.summary,
                sub.subject as subject_text
@@ -151,9 +155,11 @@ def main() -> None:
         LEFT JOIN subjects sub ON m.subject = sub.ROWID
         WHERE m.date_received >= ?
         ORDER BY m.date_received DESC
-    """, (cutoff,))
+    """,
+        (cutoff,),
+    )
     db_rows = cur.fetchall()
-    col_names = [d[0] for d in cur.description]
+    [d[0] for d in cur.description]
 
     print(f"\n[DB] Messages (date_received >= 2 days ago): {len(db_rows)}")
 
@@ -164,7 +170,9 @@ def main() -> None:
         mb_cols = [r[1] for r in cur.fetchall()]
         for row in cur.execute("SELECT ROWID, * FROM mailboxes"):
             vals = dict(zip(["ROWID"] + mb_cols, [row[0]] + list(row[1:])))
-            name = vals.get("display_name") or vals.get("name") or vals.get("path") or vals.get("url")
+            name = (
+                vals.get("display_name") or vals.get("name") or vals.get("path") or vals.get("url")
+            )
             if name and isinstance(name, str):
                 if "/" in str(name):
                     name = str(name).split("/")[-1]
@@ -176,12 +184,15 @@ def main() -> None:
     # 3. Sender addresses (messages.sender = addresses.ROWID in Apple Mail)
     sender_map = {}
     try:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT m.ROWID, a.address
             FROM messages m
             LEFT JOIN addresses a ON m.sender = a.ROWID
             WHERE m.date_received >= ? AND m.sender IS NOT NULL
-        """, (cutoff,))
+        """,
+            (cutoff,),
+        )
         for r in cur.fetchall():
             if r[1]:
                 sender_map[r[0]] = r[1]
@@ -195,12 +206,15 @@ def main() -> None:
         rec_cols = [r[1] for r in cur.fetchall()]
         msg_col = "message_id" if "message_id" in rec_cols else "message"
         addr_col = "address" if "address" in rec_cols else "address_id"
-        cur.execute(f"""
+        cur.execute(
+            f"""
             SELECT r.{msg_col}, a.address
             FROM recipients r
             LEFT JOIN addresses a ON r.{addr_col} = a.ROWID
             WHERE r.{msg_col} IN (SELECT ROWID FROM messages WHERE date_received >= ?)
-        """, (cutoff,))
+        """,
+            (cutoff,),
+        )
         recipients_found = cur.fetchall()
     except sqlite3.OperationalError:
         pass
@@ -212,11 +226,14 @@ def main() -> None:
         att_cols = [r[1] for r in cur.fetchall()]
         msg_col = "message_id" if "message_id" in att_cols else "message"
         fn_col = "filename" if "filename" in att_cols else "name"
-        cur.execute(f"""
+        cur.execute(
+            f"""
             SELECT {msg_col}, {fn_col}
             FROM attachments
             WHERE {msg_col} IN (SELECT ROWID FROM messages WHERE date_received >= ?)
-        """, (cutoff,))
+        """,
+            (cutoff,),
+        )
         attachments_found = cur.fetchall()
     except sqlite3.OperationalError:
         pass
@@ -224,13 +241,16 @@ def main() -> None:
     # 6. Labels
     labels_found = []
     try:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT m.ROWID, l.name
             FROM messages m
             JOIN local_message_actions lma ON m.ROWID = lma.message_id
             JOIN labels l ON lma.label_id = l.ROWID
             WHERE m.date_received >= ?
-        """, (cutoff,))
+        """,
+            (cutoff,),
+        )
         labels_found = cur.fetchall()
     except sqlite3.OperationalError:
         pass
@@ -238,12 +258,15 @@ def main() -> None:
     # 7. Generated summaries
     summaries_found = []
     try:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT m.ROWID, gs.ROWID
             FROM messages m
             JOIN generated_summaries gs ON m.summary = gs.ROWID
             WHERE m.date_received >= ? AND gs.summary IS NOT NULL
-        """, (cutoff,))
+        """,
+            (cutoff,),
+        )
         summaries_found = cur.fetchall()
     except sqlite3.OperationalError:
         pass
@@ -279,7 +302,11 @@ def main() -> None:
     print("\n► FROM ENVELOPE INDEX (DB):")
     print(f"  • Subject (from subjects join): {sum(1 for r in db_rows if r[10])} / {len(db_rows)}")
     db_senders = len([v for v in sender_map.values() if v])
-    sender_note = f"{db_senders} from DB" if db_senders >= len(db_rows) else f"{db_senders} from DB, rest from .emlx fallback"
+    sender_note = (
+        f"{db_senders} from DB"
+        if db_senders >= len(db_rows)
+        else f"{db_senders} from DB, rest from .emlx fallback"
+    )
     print(f"  • Sender address: {sender_note}")
     print(f"  • Mailbox names: {len(mailbox_map)} mailboxes in map")
     print(f"  • Recipients (recipients table): {len(recipients_found)} rows")
@@ -289,7 +316,7 @@ def main() -> None:
 
     print("\n► FROM .emlx FILES:")
     if emlx_data:
-        sample = emlx_data[0]
+        emlx_data[0]
         print(f"  • Parsed: {len(emlx_data)} files")
         print(f"  • From: {sum(1 for e in emlx_data if e.get('From'))} / {len(emlx_data)}")
         print(f"  • To: {sum(1 for e in emlx_data if e.get('To'))} / {len(emlx_data)}")
@@ -297,11 +324,17 @@ def main() -> None:
         print(f"  • Bcc: {sum(1 for e in emlx_data if e.get('Bcc'))} / {len(emlx_data)}")
         print(f"  • Subject: {sum(1 for e in emlx_data if e.get('Subject'))} / {len(emlx_data)}")
         print(f"  • Date: {sum(1 for e in emlx_data if e.get('Date'))} / {len(emlx_data)}")
-        print(f"  • Message-ID: {sum(1 for e in emlx_data if e.get('Message-ID'))} / {len(emlx_data)}")
-        print(f"  • In-Reply-To (threading): {sum(1 for e in emlx_data if e.get('In-Reply-To'))} / {len(emlx_data)}")
-        print(f"  • References (threading): {sum(1 for e in emlx_data if e.get('References'))} / {len(emlx_data)}")
-        print(f"  • Body preview: {sum(1 for e in emlx_data if e.get('body_preview'))} / {len(emlx_data)}")
-        print(f"  • Attachments (from MIME): {sum(len(e.get('attachments', [])) for e in emlx_data)} total")
+        print(
+            f"  • Message-ID: {sum(1 for e in emlx_data if e.get('Message-ID'))} / {len(emlx_data)}"
+        )
+        in_reply_count = sum(1 for e in emlx_data if e.get("In-Reply-To"))
+        print(f"  • In-Reply-To (threading): {in_reply_count} / {len(emlx_data)}")
+        refs_count = sum(1 for e in emlx_data if e.get("References"))
+        print(f"  • References (threading): {refs_count} / {len(emlx_data)}")
+        body_count = sum(1 for e in emlx_data if e.get("body_preview"))
+        print(f"  • Body preview: {body_count} / {len(emlx_data)}")
+        att_count = sum(len(e.get("attachments", [])) for e in emlx_data)
+        print(f"  • Attachments (from MIME): {att_count} total")
     else:
         print("  • No .emlx files parsed (all failed or none in date range)")
 
@@ -322,13 +355,16 @@ def main() -> None:
         sender = sender_map.get(rid, "")
         if not sender and sub_text:
             sender = emlx_by_subject.get(_norm(sub_text), "")
-        print(f"\n  [{i+1}] ROWID={rid} mailbox={mb_name} read={read} deleted={deleted} flagged={flagged}")
+        print(
+            f"\n  [{i + 1}] ROWID={rid} mailbox={mb_name}"
+            f" read={read} deleted={deleted} flagged={flagged}"
+        )
         print(f"      subject: {sub_text or '(none)'}")
         print(f"      sender: {sender or '(none)'}")
 
     print("\n► SAMPLE .emlx (first 3 parsed):")
     for i, e in enumerate(emlx_data[:3]):
-        print(f"\n  [{i+1}] {e.get('_mailbox', '?')} — {e.get('_path', '')[:60]}...")
+        print(f"\n  [{i + 1}] {e.get('_mailbox', '?')} — {e.get('_path', '')[:60]}...")
         print(f"      From: {e.get('From', '')[:60]}")
         print(f"      To: {e.get('To', '')[:60] if e.get('To') else '(none)'}")
         print(f"      Subject: {(e.get('Subject') or '')[:50]}")

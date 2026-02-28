@@ -111,7 +111,7 @@ FS_EXCLUDED_PATTERNS = (
 
 # ── Claude logs ────────────────────────────────────────────────────────
 CLAUDE_PROJECTS_DIR = Path("~/.claude/projects").expanduser()
-CLAUDE_CONTENT_PREVIEW_LEN = 500
+CLAUDE_CONTENT_PREVIEW_LEN = 100_000
 
 # ── Filesystem watcher ─────────────────────────────────────────────────
 FS_WATCH_PATHS = [
