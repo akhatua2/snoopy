@@ -62,9 +62,13 @@ BUFFER_MAX_SIZE = 500       # force flush if buffer exceeds this
 
 # ── Browser history paths ──────────────────────────────────────────────
 CHROME_HISTORY = Path("~/Library/Application Support/Google/Chrome/Default/History").expanduser()
-CHROME_BOOKMARKS = Path("~/Library/Application Support/Google/Chrome/Default/Bookmarks").expanduser()
+CHROME_BOOKMARKS = Path(
+    "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
+).expanduser()
 ARC_HISTORY = Path("~/Library/Application Support/Arc/User Data/Default/History").expanduser()
-ARC_BOOKMARKS = Path("~/Library/Application Support/Arc/User Data/Default/Bookmarks").expanduser()
+ARC_BOOKMARKS = Path(
+    "~/Library/Application Support/Arc/User Data/Default/Bookmarks"
+).expanduser()
 SAFARI_HISTORY = Path("~/Library/Safari/History.db").expanduser()
 FIREFOX_PROFILES = Path("~/Library/Application Support/Firefox/Profiles").expanduser()
 

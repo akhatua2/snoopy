@@ -211,7 +211,9 @@ class NotesCollector(BaseCollector):
                     shutil.copy2(src, tmp + suffix)
         except PermissionError:
             if not self._permission_warned:
-                log.warning("Notes NoteStore.sqlite needs Full Disk Access — skipping until granted")
+                log.warning(
+                    "Notes NoteStore.sqlite needs Full Disk Access — skipping"
+                )
                 self._permission_warned = True
             return
         except (OSError, shutil.Error):

@@ -7,7 +7,12 @@ import time
 import pytest
 
 from snoopy.buffer import EventBuffer
-from snoopy.collectors.notes import NotesCollector, _APPLE_EPOCH_OFFSET, extract_note_text, _scan_raw_text
+from snoopy.collectors.notes import (
+    _APPLE_EPOCH_OFFSET,
+    NotesCollector,
+    _scan_raw_text,
+    extract_note_text,
+)
 from snoopy.db import Database
 
 

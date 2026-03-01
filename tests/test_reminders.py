@@ -1,8 +1,5 @@
 """Tests for reminders collector — verifies change tracking logic."""
 
-import json
-import time
-
 import pytest
 
 from snoopy.buffer import EventBuffer

@@ -178,7 +178,8 @@ class TestBrowserCollector:
         # Add a new search term (url_id=3)
         conn = sqlite3.connect(str(fake_chrome))
         conn.execute(
-            "INSERT INTO urls VALUES (3, 'https://google.com/search?q=new+query', 'new query', 1, 0, ?)",
+            "INSERT INTO urls VALUES "
+            "(3, 'https://google.com/search?q=new+query', 'new query', 1, 0, ?)",
             (now_chrome,),
         )
         conn.execute("INSERT INTO visits VALUES (3, 3, ?, 1000000, 0)", (now_chrome,))

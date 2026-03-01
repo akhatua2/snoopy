@@ -24,12 +24,12 @@ from snoopy.collectors.filesystem import FilesystemCollector
 from snoopy.collectors.location import LocationCollector
 from snoopy.collectors.mail import MailCollector
 from snoopy.collectors.media import MediaCollector
-from snoopy.collectors.notes import NotesCollector
-from snoopy.collectors.reminders import RemindersCollector
 from snoopy.collectors.messages import MessagesCollector
 from snoopy.collectors.network import NetworkCollector
+from snoopy.collectors.notes import NotesCollector
 from snoopy.collectors.notifications import NotificationCollector
 from snoopy.collectors.oura import OuraCollector
+from snoopy.collectors.reminders import RemindersCollector
 from snoopy.collectors.shell import ShellCollector
 from snoopy.collectors.system import SystemCollector
 from snoopy.collectors.wifi import WifiCollector
