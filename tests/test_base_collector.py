@@ -78,4 +78,4 @@ class TestBaseCollector:
     def test_cannot_instantiate_abc(self, buf, db):
         """BaseCollector is abstract and cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            BaseCollector(buf, db)  # type: ignore[abstract]
+            BaseCollector(buf, db)

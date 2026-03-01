@@ -49,7 +49,7 @@ class TestEventBuffer:
         # Temporarily set a small max
         import snoopy.config as cfg
         original = cfg.BUFFER_MAX_SIZE
-        cfg.BUFFER_MAX_SIZE = 5
+        cfg.BUFFER_MAX_SIZE = 5  # type: ignore[invalid-assignment]
 
         buf = EventBuffer(db)
         for i in range(6):
