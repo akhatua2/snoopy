@@ -15,6 +15,7 @@ def state_dir(tmp_path, monkeypatch):
     linus_dir.mkdir()
     monkeypatch.setattr(sync, "LINUS_DIR", linus_dir)
     monkeypatch.setattr(sync, "STATE_PATH", linus_dir / "training_state.json")
+    monkeypatch.setattr(sync, "HISTORY_PATH", linus_dir / "training_history.jsonl")
     return linus_dir
 
 

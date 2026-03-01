@@ -85,6 +85,45 @@ func listCalendars(outFile: String?) {
     writeOutput(toJSON(items), toFile: outFile)
 }
 
+func listReminders(outFile: String?) {
+    let semaphore = DispatchSemaphore(value: 0)
+    store.requestFullAccessToReminders { _, _ in semaphore.signal() }
+    semaphore.wait()
+
+    store.refreshSourcesIfNecessary()
+    for _ in 0..<40 {
+        if store.sources.count > 1 { break }
+        Thread.sleep(forTimeInterval: 0.25)
+    }
+
+    let predicate = store.predicateForReminders(in: nil)
+    var reminders: [EKReminder] = []
+    let fetchSemaphore = DispatchSemaphore(value: 0)
+    store.fetchReminders(matching: predicate) { result in
+        reminders = result ?? []
+        fetchSemaphore.signal()
+    }
+    fetchSemaphore.wait()
+
+    var items: [[String: Any]] = []
+    for r in reminders {
+        items.append([
+            "uid": r.calendarItemIdentifier,
+            "title": r.title ?? "",
+            "list": r.calendar?.title ?? "",
+            "completed": r.isCompleted,
+            "completion_date": r.completionDate.map { iso8601($0) } ?? "",
+            "due_date": r.dueDateComponents?.date.map { iso8601($0) } ?? "",
+            "priority": r.priority,
+            "creation_date": r.creationDate.map { iso8601($0) } ?? "",
+            "modification_date": r.lastModifiedDate.map { iso8601($0) } ?? "",
+            "notes": r.notes ?? ""
+        ])
+    }
+    items.sort { ($0["modification_date"] as? String ?? "") > ($1["modification_date"] as? String ?? "") }
+    writeOutput(toJSON(items), toFile: outFile)
+}
+
 func listEvents(outFile: String?) {
     waitForSources()
     let now = Date()
@@ -147,7 +186,9 @@ case "calendars":
     listCalendars(outFile: outFile)
 case "events":
     listEvents(outFile: outFile)
+case "reminders":
+    listReminders(outFile: outFile)
 default:
-    fputs("usage: calendar_helper [auth|calendars|events] [output_file]\n", stderr)
+    fputs("usage: calendar_helper [auth|calendars|events|reminders] [output_file]\n", stderr)
     exit(1)
 }
