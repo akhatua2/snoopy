@@ -30,6 +30,7 @@ package = true
 [dependency-groups]
 dev = [
     "maturin",
+    "modal",
     "pytest",
     "ruff",
     "ty",
