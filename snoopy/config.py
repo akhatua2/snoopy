@@ -64,6 +64,8 @@ SLACK_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "slack_helpe
 WHATSAPP_INTERVAL = 2
 WHATSAPP_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "whatsapp_helper"
 PAGECONTENT_INTERVAL = 2
+DOCK_INTERVAL = 5
+DOCK_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "dock_helper"
 CHROME_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "chrome_helper"
 
 # ── Buffer ─────────────────────────────────────────────────────────────

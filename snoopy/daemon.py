@@ -20,6 +20,7 @@ from snoopy.collectors.battery import BatteryCollector
 from snoopy.collectors.browser import BrowserCollector
 from snoopy.collectors.calendar import CalendarCollector
 from snoopy.collectors.clipboard import ClipboardCollector
+from snoopy.collectors.dock import DockCollector
 from snoopy.collectors.filesystem import FilesystemCollector
 from snoopy.collectors.location import LocationCollector
 from snoopy.collectors.mail import MailCollector
@@ -74,6 +75,7 @@ ALL_COLLECTORS = [
     SlackCollector,
     WhatsAppCollector,
     PageContentCollector,
+    DockCollector,
 ]
 
 

@@ -37,6 +37,8 @@ Action types:
 - [note:create/edit/delete] title — user created, edited, or deleted a note
 
 Stimuli (context only, not predicted):
+- [badge] App: count — notification badge appeared/changed on dock icon
+- [badge:clear] App — notification badge cleared (user read notifications)
 - [mail:recv] — incoming email
 - [message:recv] — incoming message
 - [notify] — push notification
@@ -280,6 +282,8 @@ _CONTEXT_ONLY_ACTIONS = frozenset(
         "reminder:done",
         "reminder:edit",
         "reminder:delete",
+        "badge",
+        "badge:clear",
     }
 )
 
