@@ -32,11 +32,19 @@ Action types:
 - [launch/quit] App — user opened/closed an app
 - [lock/unlock] — user locked/unlocked their computer
 - [mail:sent] sender: subject — user sent an email
+- [slack:sent] workspace#channel: text — user sent a Slack message
+- [whatsapp:sent] chat: text — user sent a WhatsApp message
+- [note:create/edit/delete] title — user created, edited, or deleted a note
 
 Stimuli (context only, not predicted):
 - [mail:recv] — incoming email
 - [message:recv] — incoming message
 - [notify] — push notification
+- [slack] workspace#channel — Slack messages from others
+- [whatsapp] chat — WhatsApp messages from others
+- [page] domain — content visible on a web page
+- [meeting:start/end] — Zoom meeting started/ended
+- [reminder:create/done] — reminder activity
 
 Timestamps are [HH:MM:SS] before each action."""
 
@@ -66,6 +74,22 @@ def _load_oura_scores(conn: sqlite3.Connection) -> dict[str, tuple[int, int, int
         "SELECT day, sleep_score, readiness_score, activity_score FROM oura_daily"
     ).fetchall()
     return {day: (sleep or 0, ready or 0, activity or 0) for day, sleep, ready, activity in rows}
+
+
+def _load_reminders(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
+    """Load incomplete reminders as (title, list_name, due_date)."""
+    rows = conn.execute(
+        "SELECT title, list_name, due_date FROM reminder_events "
+        "WHERE completed = 0 OR completed IS NULL"
+    ).fetchall()
+    seen: set[str] = set()
+    results = []
+    for title, list_name, due_date in rows:
+        if not title or title in seen:
+            continue
+        seen.add(title)
+        results.append((title, list_name or "", due_date or ""))
+    return results
 
 
 def _load_locations(conn: sqlite3.Connection) -> list[tuple[float, str]]:
@@ -101,6 +125,7 @@ def _get_ambient_context(
     calendar_events: list[tuple[float, float, str]],
     oura_scores: dict[str, tuple[int, int, int]],
     locations: list[tuple[float, str]] | None = None,
+    reminders: list[tuple[str, str, str]] | None = None,
 ) -> str:
     """Build ambient context string for a given timestamp."""
     parts = []
@@ -142,6 +167,16 @@ def _get_ambient_context(
     loc = _nearest_location(ts, locations or [])
     if loc:
         parts.append(f"Location: {loc}")
+
+    # Reminders
+    if reminders:
+        items = []
+        for title, list_name, due_date in reminders[:10]:
+            item = title
+            if due_date:
+                item += f" (due {due_date})"
+            items.append(item)
+        parts.append("Reminders: " + ", ".join(items))
 
     return ". ".join(parts)
 
@@ -235,6 +270,16 @@ _CONTEXT_ONLY_ACTIONS = frozenset(
         "quit",
         "lock",
         "unlock",
+        # New source stimuli — context only
+        "page",
+        "slack",
+        "whatsapp",
+        "meeting:start",
+        "meeting:end",
+        "reminder:create",
+        "reminder:done",
+        "reminder:edit",
+        "reminder:delete",
     }
 )
 
@@ -250,10 +295,12 @@ def _build_examples(
     calendar_events: list[tuple[float, float, str]] | None = None,
     oura_scores: dict[str, tuple[int, int, int]] | None = None,
     locations: list[tuple[float, str]] | None = None,
+    reminders: list[tuple[str, str, str]] | None = None,
 ) -> list[dict]:
     calendar_events = calendar_events or []
     oura_scores = oura_scores or {}
     locations = locations or []
+    reminders = reminders or []
 
     # Split at SESSION_BREAK markers
     sessions: list[list[Action]] = []
@@ -298,7 +345,7 @@ def _build_examples(
                 targets.append(next_target)
 
             ambient = _get_ambient_context(
-                target.timestamp, calendar_events, oura_scores, locations,
+                target.timestamp, calendar_events, oura_scores, locations, reminders,
             )
             system_prompt = _build_system_prompt(ambient)
             prompt = _format_context(context, target.timestamp, cfg)
@@ -387,14 +434,15 @@ def build_dataset(
         calendar_events = _load_calendar_events(conn)
         oura_scores = _load_oura_scores(conn)
         locations = _load_locations(conn)
+        reminders = _load_reminders(conn)
     finally:
         conn.close()
     log.info(
-        "Ambient context: %d calendar events, %d oura days, %d locations",
-        len(calendar_events), len(oura_scores), len(locations),
+        "Ambient context: %d calendar events, %d oura days, %d locations, %d reminders",
+        len(calendar_events), len(oura_scores), len(locations), len(reminders),
     )
 
-    examples = _build_examples(timeline, cfg, calendar_events, oura_scores, locations)
+    examples = _build_examples(timeline, cfg, calendar_events, oura_scores, locations, reminders)
     log.info("Raw examples: %d", len(examples))
 
     # Sort by target timestamp
