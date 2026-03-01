@@ -52,6 +52,9 @@ OURA_INTERVAL = 86400       # once per day
 OURA_PAT = os.environ.get("OURA_PAT", "")
 MAIL_INTERVAL = 60          # poll every 60s
 MAIL_SEED_DAYS = 1          # on first run, seed with last N days
+NOTES_INTERVAL = 300        # 5 minutes
+NOTES_SEED_DAYS = 7         # on first run, seed with last N days
+REMINDERS_INTERVAL = 1800   # 30 minutes
 
 # ── Buffer ─────────────────────────────────────────────────────────────
 BUFFER_FLUSH_INTERVAL = 5  # seconds between flushes
@@ -59,7 +62,9 @@ BUFFER_MAX_SIZE = 500       # force flush if buffer exceeds this
 
 # ── Browser history paths ──────────────────────────────────────────────
 CHROME_HISTORY = Path("~/Library/Application Support/Google/Chrome/Default/History").expanduser()
+CHROME_BOOKMARKS = Path("~/Library/Application Support/Google/Chrome/Default/Bookmarks").expanduser()
 ARC_HISTORY = Path("~/Library/Application Support/Arc/User Data/Default/History").expanduser()
+ARC_BOOKMARKS = Path("~/Library/Application Support/Arc/User Data/Default/Bookmarks").expanduser()
 SAFARI_HISTORY = Path("~/Library/Safari/History.db").expanduser()
 FIREFOX_PROFILES = Path("~/Library/Application Support/Firefox/Profiles").expanduser()
 

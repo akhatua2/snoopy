@@ -22,11 +22,14 @@ SCHEMA_VERSION = 1
 
 _VALID_TABLES = frozenset({
     "window_events", "idle_events", "media_events", "browser_events",
-    "shell_events", "wifi_events", "clipboard_events", "file_events",
-    "claude_events", "network_events", "location_events",
+    "search_events", "download_events", "bookmark_events",
+    "shell_events", "wifi_events",
+    "clipboard_events",
+    "file_events", "claude_events", "network_events", "location_events",
     "notification_events", "audio_events", "message_events",
     "system_events", "app_events", "battery_events", "calendar_events",
-    "calendar_changes", "oura_daily", "mail_events",
+    "calendar_changes", "oura_daily", "mail_events", "note_events",
+    "reminder_events",
     "collector_state", "daemon_health",
 })
 
@@ -79,6 +82,36 @@ CREATE TABLE IF NOT EXISTS browser_events (
     visit_duration_s REAL
 );
 CREATE INDEX IF NOT EXISTS idx_browser_ts ON browser_events(timestamp);
+
+CREATE TABLE IF NOT EXISTS search_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    term TEXT NOT NULL,
+    browser TEXT,
+    url TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_search_ts ON search_events(timestamp);
+
+CREATE TABLE IF NOT EXISTS download_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    file_path TEXT,
+    source_url TEXT,
+    total_bytes INTEGER,
+    mime_type TEXT,
+    browser TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_download_ts ON download_events(timestamp);
+
+CREATE TABLE IF NOT EXISTS bookmark_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    url TEXT NOT NULL,
+    title TEXT,
+    folder TEXT,
+    browser TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_bookmark_ts ON bookmark_events(timestamp);
 
 CREATE TABLE IF NOT EXISTS shell_events (
     id INTEGER PRIMARY KEY,
@@ -282,6 +315,32 @@ CREATE TABLE IF NOT EXISTS mail_events (
 );
 CREATE INDEX IF NOT EXISTS idx_mail_ts ON mail_events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_mail_message_id ON mail_events(message_id);
+
+CREATE TABLE IF NOT EXISTS note_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    note_id TEXT NOT NULL,
+    title TEXT,
+    content TEXT,
+    folder TEXT,
+    account TEXT,
+    event_type TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_note_ts ON note_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_note_id ON note_events(note_id);
+
+CREATE TABLE IF NOT EXISTS reminder_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    reminder_uid TEXT NOT NULL,
+    title TEXT,
+    list_name TEXT,
+    completed INTEGER,
+    due_date TEXT,
+    event_type TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_reminder_ts ON reminder_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_reminder_uid ON reminder_events(reminder_uid);
 
 CREATE TABLE IF NOT EXISTS collector_state (
     id INTEGER PRIMARY KEY,

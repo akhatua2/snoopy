@@ -13,10 +13,14 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSUIElement</key>
-    <false/>
+    <true/>
     <key>NSCalendarsFullAccessUsageDescription</key>
     <string>Snoopy needs calendar access to log your schedule for activity tracking.</string>
     <key>NSCalendarsUsageDescription</key>
     <string>Snoopy needs calendar access to log your schedule for activity tracking.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>Snoopy needs reminders access to track your tasks for activity tracking.</string>
+    <key>NSRemindersUsageDescription</key>
+    <string>Snoopy needs reminders access to track your tasks for activity tracking.</string>
 </dict>
 </plist>
