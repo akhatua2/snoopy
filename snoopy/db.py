@@ -30,7 +30,7 @@ _VALID_TABLES = frozenset({
     "system_events", "app_events", "battery_events", "calendar_events",
     "calendar_changes", "oura_daily", "mail_events", "note_events",
     "reminder_events", "zoom_events", "slack_events",
-    "whatsapp_events", "page_content_events",
+    "whatsapp_events", "page_content_events", "dock_events",
     "collector_state", "daemon_health",
 })
 
@@ -383,6 +383,16 @@ CREATE TABLE IF NOT EXISTS page_content_events (
     content TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_page_content_ts ON page_content_events(timestamp);
+
+CREATE TABLE IF NOT EXISTS dock_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    event_type TEXT NOT NULL,
+    app_name TEXT NOT NULL,
+    badge_value TEXT,
+    prev_badge_value TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_dock_ts ON dock_events(timestamp);
 
 CREATE TABLE IF NOT EXISTS collector_state (
     id INTEGER PRIMARY KEY,

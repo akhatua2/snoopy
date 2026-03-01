@@ -763,6 +763,34 @@ def _clean_page_content_events(
     return actions
 
 
+def _clean_dock_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, event_type, app_name, badge_value, prev_badge_value "
+        "FROM dock_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    actions = []
+    for ts, etype, app, badge, prev_badge in rows:
+        if etype != "badge_change":
+            continue
+        if not app:
+            continue
+
+        if badge and not prev_badge:
+            # Badge appeared
+            actions.append(Action(ts, "badge", f"{app}: {badge}"))
+        elif badge and prev_badge:
+            # Badge count changed
+            actions.append(Action(ts, "badge", f"{app}: {prev_badge} → {badge}"))
+        elif not badge and prev_badge:
+            # Badge cleared — user read notifications
+            actions.append(Action(ts, "badge:clear", app))
+
+    return actions
+
+
 def _clean_zoom_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
     rows = conn.execute(
         "SELECT timestamp, event_type, meeting_topic, participants "
@@ -1043,6 +1071,27 @@ def _dedup_zoom(actions: list[Action]) -> list[Action]:
     return result
 
 
+def _dedup_badges(actions: list[Action]) -> list[Action]:
+    """Collapse consecutive same-app badge changes within 30s. Keep last."""
+    if not actions:
+        return actions
+
+    _BADGE_TYPES = {"badge", "badge:clear"}
+    result: list[Action] = []
+    for a in actions:
+        if (
+            a.action_type in _BADGE_TYPES
+            and result
+            and result[-1].action_type in _BADGE_TYPES
+            and a.text.split(":", 1)[0].strip() == result[-1].text.split(":", 1)[0].strip()
+            and (a.timestamp - result[-1].timestamp) < 30.0
+        ):
+            result[-1] = a
+            continue
+        result.append(a)
+    return result
+
+
 _BROWSER_APPS = frozenset(
     {
         "Google Chrome",
@@ -1232,6 +1281,7 @@ def build_timeline(
         all_actions.extend(_clean_zoom_events(conn, since_ts, until_ts))
         all_actions.extend(_clean_note_events(conn, since_ts, until_ts))
         all_actions.extend(_clean_reminder_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_dock_events(conn, since_ts, until_ts))
 
         all_actions.sort(key=lambda a: a.timestamp)
 
@@ -1245,6 +1295,7 @@ def build_timeline(
         all_actions = _dedup_page_content(all_actions)
         all_actions = _dedup_messaging(all_actions)
         all_actions = _dedup_zoom(all_actions)
+        all_actions = _dedup_badges(all_actions)
         all_actions = _cross_table_dedup(all_actions)
         all_actions = _insert_session_breaks(all_actions)
 
