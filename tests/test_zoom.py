@@ -124,7 +124,7 @@ class TestZoomCollector:
             _quartz_window("zoom.us", "Zoom Meeting", layer=0, width=1600, height=900),
         ]
         with patch("snoopy.collectors.zoom.Quartz") as mock_q, \
-             patch("snoopy.collectors.zoom._zoom_is_frontmost", return_value=False):
+             patch("snoopy.collectors.zoom._scrape_participants", return_value=[]):
             mock_q.CGWindowListCopyWindowInfo.return_value = windows
             mock_q.kCGWindowListOptionAll = 0
             mock_q.kCGNullWindowID = 0
@@ -153,7 +153,7 @@ class TestZoomCollector:
         data = json.loads(event.values[3])
         assert "duration_s" in data
 
-    def test_participants_emitted_when_focused(self):
+    def test_participants_emitted(self):
         c, buf = _make_collector()
         c._in_meeting = True
         c._meeting_start = 1000.0
@@ -164,7 +164,6 @@ class TestZoomCollector:
         ]
         stdout = "Alice, Computer audio muted\n"
         with patch("snoopy.collectors.zoom.Quartz") as mock_q, \
-             patch("snoopy.collectors.zoom._zoom_is_frontmost", return_value=True), \
              patch("snoopy.collectors.zoom.subprocess.run") as mock_run:
             mock_q.CGWindowListCopyWindowInfo.return_value = windows
             mock_q.kCGWindowListOptionAll = 0
@@ -189,7 +188,6 @@ class TestZoomCollector:
         ]
         stdout = "Alice, Computer audio muted\n"
         with patch("snoopy.collectors.zoom.Quartz") as mock_q, \
-             patch("snoopy.collectors.zoom._zoom_is_frontmost", return_value=True), \
              patch("snoopy.collectors.zoom.subprocess.run") as mock_run:
             mock_q.CGWindowListCopyWindowInfo.return_value = windows
             mock_q.kCGWindowListOptionAll = 0
@@ -201,7 +199,8 @@ class TestZoomCollector:
         # Only one event, second call deduplicated
         assert buf.push.call_count == 1
 
-    def test_no_scrape_when_not_focused(self):
+    def test_scrapes_participants_without_focus(self):
+        """Participants are scraped even when Zoom is not the focused app."""
         c, buf = _make_collector()
         c._in_meeting = True
         c._meeting_start = 1000.0
@@ -210,14 +209,15 @@ class TestZoomCollector:
         windows = [
             _quartz_window("zoom.us", "Zoom Meeting", layer=0, width=1600, height=900),
         ]
+        stdout = "Bob, Computer audio connected\n"
         with patch("snoopy.collectors.zoom.Quartz") as mock_q, \
-             patch("snoopy.collectors.zoom._zoom_is_frontmost", return_value=False), \
              patch("snoopy.collectors.zoom.subprocess.run") as mock_run:
             mock_q.CGWindowListCopyWindowInfo.return_value = windows
             mock_q.kCGWindowListOptionAll = 0
             mock_q.kCGNullWindowID = 0
+            mock_run.return_value = MagicMock(returncode=0, stdout=stdout)
             c.collect()
 
-        # No participant scraping, no events emitted (already in meeting)
-        assert buf.push.call_count == 0
-        mock_run.assert_not_called()
+        assert buf.push.call_count == 1
+        event = buf.push.call_args[0][0]
+        assert event.values[1] == "participants"
