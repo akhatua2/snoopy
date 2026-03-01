@@ -4,6 +4,7 @@ Queries raw events from SQLite, deduplicates, normalizes, filters noise,
 and produces a unified Action timeline for SFT dataset construction.
 """
 
+import json
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -139,6 +140,8 @@ _FS_PROJECT_PREFIXES = (
 )
 
 _SKIP_CLAUDE_TYPES = {"assistant_text", "tool_result"}
+
+_WA_SENDER_RE = re.compile(r"^Message from (?:Maybe )?(.+?),\s*(?:Link,\s*)?", re.IGNORECASE)
 
 _SENSITIVE_CLIP_RE = re.compile(
     r"token=|api_key=|secret=|password=|login/one-time"
@@ -605,6 +608,253 @@ def _clean_audio_events(conn: sqlite3.Connection, since: float, until: float) ->
     return actions
 
 
+def _clean_slack_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, workspace, channel_name, messages "
+        "FROM slack_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    actions = []
+    for ts, workspace, channel, messages_json in rows:
+        if not messages_json:
+            continue
+        try:
+            messages = json.loads(messages_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        prefix = f"{workspace}#{channel}" if workspace and channel else (channel or workspace or "")
+
+        user_msgs = []
+        other_msgs = []
+        for msg in messages:
+            sender = msg.get("sender", "")
+            text = (msg.get("text", "") or "").replace("\n", " ").strip()
+            if not text:
+                continue
+            text = text[:200]
+            if sender in config.USER_NAMES:
+                user_msgs.append(text)
+            else:
+                other_msgs.append((sender, text))
+
+        for text in user_msgs:
+            actions.append(Action(ts, "slack:sent", f'{prefix}: "{text}"'))
+
+        if other_msgs:
+            parts = [f"{s}: {t}" for s, t in other_msgs]
+            combined = " | ".join(parts)
+            actions.append(Action(ts, "slack", f"{prefix}: {combined}"))
+
+    return actions
+
+
+def _clean_whatsapp_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, chat_name, messages "
+        "FROM whatsapp_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    actions = []
+    for ts, chat_name, messages_json in rows:
+        if not messages_json:
+            continue
+        try:
+            messages = json.loads(messages_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        chat = chat_name or ""
+
+        user_msgs = []
+        other_msgs = []
+        for msg in messages:
+            text = (msg.get("text", "") or "").replace("\n", " ").strip()
+            if not text:
+                continue
+
+            # Extract sender from "Message from [Name], ..." format
+            m = _WA_SENDER_RE.match(text)
+            if m:
+                sender = m.group(1).strip()
+                body = text[m.end():].strip()
+            else:
+                sender = ""
+                body = text
+
+            if not body:
+                continue
+            body = body[:200]
+
+            if sender in config.USER_NAMES:
+                user_msgs.append(body)
+            else:
+                label = sender or "Unknown"
+                other_msgs.append((label, body))
+
+        for text in user_msgs:
+            actions.append(Action(ts, "whatsapp:sent", f'{chat}: "{text}"'))
+
+        if other_msgs:
+            parts = [f"{s}: {t}" for s, t in other_msgs]
+            combined = " | ".join(parts)
+            actions.append(Action(ts, "whatsapp", f"{chat}: {combined}"))
+
+    return actions
+
+
+def _clean_page_content_events(
+    conn: sqlite3.Connection, since: float, until: float,
+) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, domain, title, content "
+        "FROM page_content_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    actions = []
+    for ts, domain, title, content_json in rows:
+        if not domain and not content_json:
+            continue
+
+        domain = domain or ""
+        title = title or ""
+
+        snippets: list[str] = []
+        if content_json:
+            try:
+                elements = json.loads(content_json)
+            except (json.JSONDecodeError, TypeError):
+                elements = []
+
+            headings = []
+            texts = []
+            for el in elements:
+                el_type = el.get("type", "")
+                el_text = (el.get("text", "") or "").strip()
+                if not el_text:
+                    continue
+                if el_type == "heading" and len(headings) < 3:
+                    headings.append(el_text)
+                elif el_type not in ("button", "link", "image") and len(texts) < 3:
+                    texts.append(el_text)
+
+            snippets = headings + texts
+
+        parts = []
+        if domain:
+            parts.append(domain)
+        if title:
+            parts.append(title)
+
+        text = " — ".join(parts)
+        if snippets:
+            snippet_text = " | ".join(snippets)
+            text += ": " + snippet_text[:200]
+
+        if text:
+            actions.append(Action(ts, "page", text))
+
+    return actions
+
+
+def _clean_zoom_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, event_type, meeting_topic, participants "
+        "FROM zoom_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    actions = []
+    for ts, etype, topic, participants_json in rows:
+        topic = topic or "Zoom Meeting"
+
+        if etype == "meeting_start":
+            actions.append(Action(ts, "meeting:start", topic))
+        elif etype == "meeting_end":
+            actions.append(Action(ts, "meeting:end", topic))
+        elif etype == "participants":
+            if participants_json:
+                try:
+                    participants = json.loads(participants_json)
+                    names = [p.get("name", "") for p in participants if p.get("name")]
+                    if names:
+                        text = f"{topic} ({', '.join(names)})"
+                        actions.append(Action(ts, "meeting:start", text))
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+    return actions
+
+
+def _clean_note_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, title, folder, event_type, content "
+        "FROM note_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    _NOTE_TYPE_MAP = {"created": "note:create", "modified": "note:edit", "deleted": "note:delete"}
+
+    actions = []
+    for ts, title, folder, etype, content in rows:
+        action_type = _NOTE_TYPE_MAP.get(etype)
+        if not action_type:
+            continue
+
+        title = title or "(untitled)"
+        text = f"{title} ({folder})" if folder else title
+
+        if content and action_type != "note:delete":
+            snippet = content.replace("\n", " ").strip()[:100]
+            if snippet:
+                text += f": {snippet}"
+
+        actions.append(Action(ts, action_type, text))
+
+    return actions
+
+
+def _clean_reminder_events(conn: sqlite3.Connection, since: float, until: float) -> list[Action]:
+    rows = conn.execute(
+        "SELECT timestamp, title, list_name, completed, due_date, event_type "
+        "FROM reminder_events WHERE timestamp >= ? AND timestamp < ? "
+        "ORDER BY timestamp",
+        (since, until),
+    ).fetchall()
+
+    actions = []
+    for ts, title, list_name, completed, due_date, etype in rows:
+        if not title:
+            continue
+
+        if etype == "completed" or completed:
+            action_type = "reminder:done"
+        elif etype == "deleted":
+            action_type = "reminder:delete"
+        elif etype == "modified":
+            action_type = "reminder:edit"
+        else:
+            action_type = "reminder:create"
+
+        text = title
+        if list_name:
+            text += f" ({list_name})"
+        if due_date:
+            text += f" due: {due_date}"
+
+        actions.append(Action(ts, action_type, text))
+
+    return actions
+
+
 # ── Deduplication ────────────────────────────────────────────────────────
 
 
@@ -728,6 +978,67 @@ def _dedup_mail(actions: list[Action]) -> list[Action]:
             if key in seen_mail:
                 continue
             seen_mail.add(key)
+        result.append(a)
+    return result
+
+
+def _dedup_page_content(actions: list[Action]) -> list[Action]:
+    """Collapse consecutive same-domain [page] events within 60s. Keep last."""
+    if not actions:
+        return actions
+
+    result: list[Action] = []
+    for a in actions:
+        if (
+            a.action_type == "page"
+            and result
+            and result[-1].action_type == "page"
+            and a.text.split(" — ", 1)[0] == result[-1].text.split(" — ", 1)[0]
+            and (a.timestamp - result[-1].timestamp) < 60.0
+        ):
+            result[-1] = a  # keep the later one
+            continue
+        result.append(a)
+    return result
+
+
+def _dedup_messaging(actions: list[Action]) -> list[Action]:
+    """Collapse consecutive identical [slack]/[whatsapp] context events (same text).
+
+    Does NOT dedup slack:sent or whatsapp:sent — each is a distinct user action.
+    """
+    if not actions:
+        return actions
+
+    _CONTEXT_MSG_TYPES = {"slack", "whatsapp"}
+    result: list[Action] = []
+    for a in actions:
+        if (
+            a.action_type in _CONTEXT_MSG_TYPES
+            and result
+            and result[-1].action_type == a.action_type
+            and result[-1].text == a.text
+        ):
+            continue
+        result.append(a)
+    return result
+
+
+def _dedup_zoom(actions: list[Action]) -> list[Action]:
+    """Collapse consecutive meeting:start events within 120s. Keep last."""
+    if not actions:
+        return actions
+
+    result: list[Action] = []
+    for a in actions:
+        if (
+            a.action_type == "meeting:start"
+            and result
+            and result[-1].action_type == "meeting:start"
+            and (a.timestamp - result[-1].timestamp) < 120.0
+        ):
+            result[-1] = a
+            continue
         result.append(a)
     return result
 
@@ -915,6 +1226,12 @@ def build_timeline(
         all_actions.extend(_clean_file_events(conn, since_ts, until_ts))
         all_actions.extend(_clean_mail_events(conn, since_ts, until_ts))
         all_actions.extend(_clean_audio_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_page_content_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_slack_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_whatsapp_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_zoom_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_note_events(conn, since_ts, until_ts))
+        all_actions.extend(_clean_reminder_events(conn, since_ts, until_ts))
 
         all_actions.sort(key=lambda a: a.timestamp)
 
@@ -925,6 +1242,9 @@ def build_timeline(
         all_actions = _dedup_file_events(all_actions)
         all_actions = _dedup_clipboard(all_actions)
         all_actions = _dedup_mail(all_actions)
+        all_actions = _dedup_page_content(all_actions)
+        all_actions = _dedup_messaging(all_actions)
+        all_actions = _dedup_zoom(all_actions)
         all_actions = _cross_table_dedup(all_actions)
         all_actions = _insert_session_breaks(all_actions)
 
