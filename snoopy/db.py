@@ -30,6 +30,7 @@ _VALID_TABLES = frozenset({
     "system_events", "app_events", "battery_events", "calendar_events",
     "calendar_changes", "oura_daily", "mail_events", "note_events",
     "reminder_events", "zoom_events", "slack_events",
+    "whatsapp_events", "page_content_events",
     "collector_state", "daemon_health",
 })
 
@@ -362,6 +363,26 @@ CREATE TABLE IF NOT EXISTS slack_events (
     unread TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_slack_ts ON slack_events(timestamp);
+
+CREATE TABLE IF NOT EXISTS whatsapp_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    chat_name TEXT,
+    chat_members TEXT,
+    messages TEXT,
+    chat_list TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_ts ON whatsapp_events(timestamp);
+
+CREATE TABLE IF NOT EXISTS page_content_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    url TEXT,
+    domain TEXT,
+    title TEXT,
+    content TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_page_content_ts ON page_content_events(timestamp);
 
 CREATE TABLE IF NOT EXISTS collector_state (
     id INTEGER PRIMARY KEY,
