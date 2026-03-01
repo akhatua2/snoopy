@@ -29,7 +29,7 @@ _VALID_TABLES = frozenset({
     "notification_events", "audio_events", "message_events",
     "system_events", "app_events", "battery_events", "calendar_events",
     "calendar_changes", "oura_daily", "mail_events", "note_events",
-    "reminder_events", "zoom_events",
+    "reminder_events", "zoom_events", "slack_events",
     "collector_state", "daemon_health",
 })
 
@@ -353,6 +353,16 @@ CREATE TABLE IF NOT EXISTS zoom_events (
 );
 CREATE INDEX IF NOT EXISTS idx_zoom_ts ON zoom_events(timestamp);
 
+CREATE TABLE IF NOT EXISTS slack_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    workspace TEXT,
+    channel_name TEXT,
+    messages TEXT,
+    unread TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_slack_ts ON slack_events(timestamp);
+
 CREATE TABLE IF NOT EXISTS collector_state (
     id INTEGER PRIMARY KEY,
     collector_name TEXT UNIQUE NOT NULL,
@@ -412,6 +422,12 @@ class Database:
             if name not in existing:
                 conn.execute(f"ALTER TABLE location_events ADD COLUMN {col}")
                 log.info("migrated location_events: added %s", name)
+
+        cur = conn.execute("PRAGMA table_info(slack_events)")
+        slack_cols = {row[1] for row in cur.fetchall()}
+        if slack_cols and "unread" not in slack_cols:
+            conn.execute("ALTER TABLE slack_events ADD COLUMN unread TEXT")
+            log.info("migrated slack_events: added unread")
 
     def open(self) -> None:
         """Open the database, apply pragmas, and ensure schema exists."""
