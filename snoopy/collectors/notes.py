@@ -160,7 +160,7 @@ def _scan_raw_text(data: bytes) -> str:
     return best.strip()
 
 
-def extract_note_text(zdata: bytes) -> str:
+def extract_note_text(zdata: bytes | None) -> str:
     """Extract full plain text from Apple Notes ZDATA (gzip-compressed protobuf)."""
     if not zdata:
         return ""
@@ -172,7 +172,10 @@ def extract_note_text(zdata: bytes) -> str:
     # Try structured protobuf extraction first
     strings: list[str] = []
     _extract_strings(decompressed, strings)
-    best_proto = max(strings, key=len, default="")
+    best_proto = ""
+    for s in strings:
+        if len(s) > len(best_proto):
+            best_proto = s
 
     # If protobuf extraction got a decent ratio of text vs blob size, use it.
     # Otherwise fall back to raw byte scanning — some Apple Notes store text
