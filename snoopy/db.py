@@ -29,7 +29,7 @@ _VALID_TABLES = frozenset({
     "notification_events", "audio_events", "message_events",
     "system_events", "app_events", "battery_events", "calendar_events",
     "calendar_changes", "oura_daily", "mail_events", "note_events",
-    "reminder_events",
+    "reminder_events", "zoom_events",
     "collector_state", "daemon_health",
 })
 
@@ -341,6 +341,17 @@ CREATE TABLE IF NOT EXISTS reminder_events (
 );
 CREATE INDEX IF NOT EXISTS idx_reminder_ts ON reminder_events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_reminder_uid ON reminder_events(reminder_uid);
+
+CREATE TABLE IF NOT EXISTS zoom_events (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    event_type TEXT NOT NULL,
+    meeting_topic TEXT,
+    participants TEXT,
+    screen_sharing INTEGER,
+    transcript_active INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_zoom_ts ON zoom_events(timestamp);
 
 CREATE TABLE IF NOT EXISTS collector_state (
     id INTEGER PRIMARY KEY,

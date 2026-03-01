@@ -34,6 +34,7 @@ from snoopy.collectors.shell import ShellCollector
 from snoopy.collectors.system import SystemCollector
 from snoopy.collectors.wifi import WifiCollector
 from snoopy.collectors.window import WindowCollector
+from snoopy.collectors.zoom import ZoomCollector
 from snoopy.config import (
     BUFFER_FLUSH_INTERVAL,
     DATA_DIR,
@@ -66,6 +67,7 @@ ALL_COLLECTORS = [
     MailCollector,
     NotesCollector,
     RemindersCollector,
+    ZoomCollector,
 ]
 
 
