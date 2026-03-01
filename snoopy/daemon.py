@@ -31,6 +31,7 @@ from snoopy.collectors.notifications import NotificationCollector
 from snoopy.collectors.oura import OuraCollector
 from snoopy.collectors.reminders import RemindersCollector
 from snoopy.collectors.shell import ShellCollector
+from snoopy.collectors.slack import SlackCollector
 from snoopy.collectors.system import SystemCollector
 from snoopy.collectors.wifi import WifiCollector
 from snoopy.collectors.window import WindowCollector
@@ -68,6 +69,7 @@ ALL_COLLECTORS = [
     NotesCollector,
     RemindersCollector,
     ZoomCollector,
+    SlackCollector,
 ]
 
 

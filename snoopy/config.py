@@ -56,6 +56,8 @@ NOTES_INTERVAL = 300        # 5 minutes
 NOTES_SEED_DAYS = 7         # on first run, seed with last N days
 REMINDERS_INTERVAL = 1800   # 30 minutes
 ZOOM_INTERVAL = 300         # 5 minutes
+SLACK_INTERVAL = 2          # NSWorkspace check interval (cheap); AX scraping throttled to 10s internally
+SLACK_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "slack_helper"
 
 # ── Buffer ─────────────────────────────────────────────────────────────
 BUFFER_FLUSH_INTERVAL = 5  # seconds between flushes
