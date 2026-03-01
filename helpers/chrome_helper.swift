@@ -211,7 +211,15 @@ func scrapeContent(outFile: String?) {
         return
     }
 
-    let url = axStr(wa, "AXURL")
+    // AXURL returns a CFURL, not a CFString — need special handling
+    var url = ""
+    if let ref = axAttr(wa, "AXURL") {
+        if let cfURL = (ref as? URL) {
+            url = cfURL.absoluteString
+        } else if let s = ref as? String {
+            url = s
+        }
+    }
     let pageTitle = axStr(wa, "AXTitle")
     let contentItems = extractPageContent(wa)
 
