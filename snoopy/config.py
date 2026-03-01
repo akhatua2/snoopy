@@ -55,6 +55,7 @@ MAIL_SEED_DAYS = 1          # on first run, seed with last N days
 NOTES_INTERVAL = 300        # 5 minutes
 NOTES_SEED_DAYS = 7         # on first run, seed with last N days
 REMINDERS_INTERVAL = 1800   # 30 minutes
+ZOOM_INTERVAL = 300         # 5 minutes
 
 # ── Buffer ─────────────────────────────────────────────────────────────
 BUFFER_FLUSH_INTERVAL = 5  # seconds between flushes
