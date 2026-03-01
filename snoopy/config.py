@@ -58,6 +58,10 @@ REMINDERS_INTERVAL = 1800   # 30 minutes
 ZOOM_INTERVAL = 300         # 5 minutes
 SLACK_INTERVAL = 2          # NSWorkspace check (cheap); AX scrape throttled to 10s
 SLACK_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "slack_helper"
+WHATSAPP_INTERVAL = 2
+WHATSAPP_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "whatsapp_helper"
+PAGECONTENT_INTERVAL = 2
+CHROME_HELPER = Path(__file__).resolve().parent.parent / "helpers" / "chrome_helper"
 
 # ── Buffer ─────────────────────────────────────────────────────────────
 BUFFER_FLUSH_INTERVAL = 5  # seconds between flushes

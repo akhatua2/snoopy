@@ -192,10 +192,6 @@ class ZoomCollector(BaseCollector):
                 ),
             ))
 
-        # Only scrape participants when Zoom is focused
-        if not _zoom_is_frontmost():
-            return
-
         participants = _scrape_participants()
         if not participants:
             return
