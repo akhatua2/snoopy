@@ -19,10 +19,14 @@ durations, and context. The data never leaves your machine.
 | **Browsing** | | | |
 | Page visits | Chrome / Arc / Safari / Firefox | `browser_events` | 30s |
 | Active tab | AppleScript (Chromium) | (in `window_events`) | |
+| Page content | Accessibility (Chrome AX tree) | `page_content_events` | 2s |
 | **Communication** | | | |
 | iMessages | `~/Library/Messages/chat.db` | `message_events` | 15s |
+| WhatsApp chats | Accessibility (Catalyst AX tree) | `whatsapp_events` | 2s |
+| Slack messages | Accessibility (Electron AX tree) | `slack_events` | 2s |
 | Email metadata | Mail.app Envelope Index | `mail_events` | 60s |
 | Notifications | macOS notification center | `notification_events` | 30s |
+| Zoom meetings | Quartz + Accessibility | `zoom_events` | 5m |
 | **Development** | | | |
 | Shell commands | `~/.zsh_history` (extended) | `shell_events` | 10s |
 | Claude sessions | `~/.claude/projects/*.jsonl` | `claude_events` | 15s |
@@ -30,6 +34,8 @@ durations, and context. The data never leaves your machine.
 | Clipboard | `NSPasteboard` | `clipboard_events` | 2s |
 | **Environment** | | | |
 | WiFi / Battery / Audio / Network / Media / Location | various macOS APIs | respective tables | 3s–5m |
+| Apple Notes | AppleScript | `note_events` | 5m |
+| Reminders | AppleScript | `reminder_events` | 30m |
 | Calendar / Oura ring | EventKit / Oura API | `calendar_events` / `oura_daily` | 30m / 24h |
 
 ---
