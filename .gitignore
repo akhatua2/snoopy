@@ -8,3 +8,5 @@ __pycache__/
 /snoopy.egg-info
 /uv.lock
 /target/
+helpers/ax_dump
+helpers/ax_dump.swift
